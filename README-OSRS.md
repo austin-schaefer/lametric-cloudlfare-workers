@@ -66,10 +66,12 @@ npx wrangler deploy
 
 #### Communication Type
 - **Type**: **Poll**
-- **URL**: `https://your-worker.workers.dev/apps/osrs?username={{username}}&period={{period}}`
+- **URL**: `https://your-worker.workers.dev/apps/osrs?`
   - Replace `your-worker.workers.dev` with your actual Cloudflare Worker domain
+  - **Important**: End the URL with `?` - LaMetric automatically appends parameters
 - **Data Format**: **Predefined (LaMetric Format)**
 - **Poll Frequency**: User-configurable (recommend default: 5 minutes)
+- **How it works**: When you define parameters below, LaMetric automatically appends them like: `?&username=VALUE&period=VALUE`
 
 #### User Parameters
 
@@ -77,9 +79,10 @@ npx wrangler deploy
 - **Field Name**: `username`
 - **Field Type**: Text
 - **Display Name**: `OSRS Username`
-- **Description**: `Your Old School RuneScape character name`
+- **Description**: `Your Old School RuneScape character name (spaces are OK)`
 - **Required**: Yes
 - **Placeholder**: `Enter username`
+- **Note**: LaMetric automatically URL-encodes spaces and special characters
 
 **Parameter 2 - Time Period:**
 - **Field Name**: `period`
@@ -97,6 +100,17 @@ npx wrangler deploy
 LaMetric requires a fallback frame for when the API is unreachable:
 - **Icon**: `i3313` (or any icon)
 - **Text**: `Loading...`
+
+#### Example Final URL
+When a user installs your app with username "LavaDargon" and period "day", LaMetric will poll:
+```
+https://your-worker.workers.dev/apps/osrs?&username=LavaDargon&period=day
+```
+
+For usernames with spaces (e.g., "Lynx Titan"), LaMetric URL-encodes them:
+```
+https://your-worker.workers.dev/apps/osrs?&username=Lynx%20Titan&period=week
+```
 
 ### Step 4: Test the App
 
