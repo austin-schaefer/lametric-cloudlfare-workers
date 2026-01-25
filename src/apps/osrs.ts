@@ -193,7 +193,7 @@ export async function customScheduledHandler(env: Env): Promise<void> {
 // Format skill gain for display
 function formatSkillGain(skillName: string, xpGained: number): string {
   const formattedXP = xpGained > 0 ? `+${formatLargeNumber(xpGained)}` : '+0';
-  return `${formattedXP} XP`;
+  return formattedXP;
 }
 
 // No-op fetchData for compatibility with standard app pattern
