@@ -37,21 +37,19 @@ export default {
           const username = url.searchParams.get('username');
           const period = url.searchParams.get('period') || 'day';
 
-          // Validate inputs
+          // Handle validation request (LaMetric calls without parameters)
           if (!username) {
-            return new Response(JSON.stringify({
-              error: 'Username required. Add ?username=YourName to URL'
-            }), {
-              status: 400,
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Configure username', 'i72683')])
+            ), {
               headers: { 'Content-Type': 'application/json' },
             });
           }
 
           if (!['day', 'week', 'month'].includes(period)) {
-            return new Response(JSON.stringify({
-              error: 'Invalid period. Use day, week, or month'
-            }), {
-              status: 400,
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Invalid period', 'i72683')])
+            ), {
               headers: { 'Content-Type': 'application/json' },
             });
           }
