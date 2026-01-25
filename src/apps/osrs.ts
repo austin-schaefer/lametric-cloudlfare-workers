@@ -116,17 +116,25 @@ export async function addCharacterToRegistry(env: Env, username: string): Promis
 // WiseOldMan API integration
 async function fetchWiseOldManData(
   username: string,
-  period: string
+  period: string,
+  env: Env
 ): Promise<WiseOldManGainsResponse> {
   const encodedUsername = encodeURIComponent(username);
   const url = `https://api.wiseoldman.net/v2/players/${encodedUsername}/gained?period=${period}`;
 
   console.log(`Fetching WiseOldMan data: ${url}`);
 
+  const headers: Record<string, string> = {
+    'User-Agent': 'LaMetric-OSRS-Tracker/1.0',
+  };
+
+  // Add API key if available
+  if (env.WISEOLDMAN_API_KEY) {
+    headers['x-api-key'] = env.WISEOLDMAN_API_KEY;
+  }
+
   const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'LaMetric-OSRS-Tracker/1.0',
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -134,6 +142,27 @@ async function fetchWiseOldManData(
   }
 
   return await response.json();
+}
+
+// Utility function to hash a string into a number (for rotation group assignment)
+function hashStringToNumber(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
+// Assign a character to a rotation group (0-5 for 30-minute rotation cycles)
+function getRotationGroup(username: string): number {
+  return hashStringToNumber(username.toLowerCase()) % 6;
+}
+
+// Add delay between API requests for rate limiting
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Custom scheduled handler (called by scheduled.ts)
@@ -147,7 +176,25 @@ export async function customScheduledHandler(env: Env): Promise<void> {
     return;
   }
 
-  console.log(`Fetching data for ${registry.length} character(s): ${registry.join(', ')}`);
+  // Calculate current rotation group (0-5) based on time
+  // Each group updates every 30 minutes (6 groups × 5 min = 30 min cycle)
+  const currentTime = Date.now();
+  const fiveMinuteInterval = Math.floor(currentTime / 300000); // 5-min intervals since epoch
+  const currentGroup = fiveMinuteInterval % 6;
+
+  // Filter characters for current rotation group
+  const charactersToUpdate = registry.filter(username =>
+    getRotationGroup(username) === currentGroup
+  );
+
+  console.log(`Total characters: ${registry.length}, Current group: ${currentGroup}, Updating: ${charactersToUpdate.length}`);
+
+  if (charactersToUpdate.length === 0) {
+    console.log('No characters assigned to this rotation group');
+    return;
+  }
+
+  console.log(`Processing characters: ${charactersToUpdate.join(', ')}`);
 
   const periods = ['day', 'week', 'month'];
 
@@ -157,60 +204,65 @@ export async function customScheduledHandler(env: Env): Promise<void> {
     ? JSON.parse(existingDataRaw)
     : {};
 
-  const aggregatedData: Record<string, Record<string, CachedOSRSData>> = {};
+  // Start with existing data, will update only characters in current rotation
+  const aggregatedData: Record<string, Record<string, CachedOSRSData>> =
+    JSON.parse(JSON.stringify(existingData)); // Deep copy
+
   let hasChanges = false;
+  let requestCount = 0;
+  const startTime = Date.now();
 
-  // Process each character
-  const results = await Promise.allSettled(
-    registry.map(async (username) => {
-      aggregatedData[username] = {};
+  // Process each character SEQUENTIALLY with rate limiting
+  for (const username of charactersToUpdate) {
+    aggregatedData[username] = aggregatedData[username] || {};
 
-      // Fetch all periods in parallel for this character
-      const periodResults = await Promise.allSettled(
-        periods.map(async (period) => {
-          try {
-            const gains = await fetchWiseOldManData(username, period);
+    // Process all periods for this character
+    for (const period of periods) {
+      try {
+        // Rate limiting: 100 req/min = ~600ms per request, use 700ms to be safe
+        if (requestCount > 0) {
+          await sleep(700);
+        }
 
-            // Compare gains data (not timestamps) to detect actual changes
-            const existingPeriodData = existingData[username]?.[period];
-            const gainsChanged = !existingPeriodData ||
-              JSON.stringify(existingPeriodData.gains) !== JSON.stringify(gains);
+        const gains = await fetchWiseOldManData(username, period, env);
+        requestCount++;
 
-            if (gainsChanged) {
-              hasChanges = true;
-            }
+        // Compare gains data (not timestamps) to detect actual changes
+        const existingPeriodData = existingData[username]?.[period];
+        const gainsChanged = !existingPeriodData ||
+          JSON.stringify(existingPeriodData.gains) !== JSON.stringify(gains);
 
-            // Preserve lastUpdated if gains haven't changed, otherwise update it
-            const cachedData: CachedOSRSData = {
-              username,
-              period,
-              lastUpdated: gainsChanged
-                ? new Date().toISOString()
-                : (existingPeriodData?.lastUpdated || new Date().toISOString()),
-              gains,
-            };
+        if (gainsChanged) {
+          hasChanges = true;
+        }
 
-            aggregatedData[username][period] = cachedData;
+        // Preserve lastUpdated if gains haven't changed, otherwise update it
+        const cachedData: CachedOSRSData = {
+          username,
+          period,
+          lastUpdated: gainsChanged
+            ? new Date().toISOString()
+            : (existingPeriodData?.lastUpdated || new Date().toISOString()),
+          gains,
+        };
 
-            const changeStatus = gainsChanged ? '(changed)' : '(unchanged)';
-            console.log(`✓ Fetched ${username} (${period}) ${changeStatus}`);
-            return { username, period, success: true, changed: gainsChanged };
-          } catch (error) {
-            console.error(`✗ Failed to fetch ${username} (${period}):`, error);
+        aggregatedData[username][period] = cachedData;
 
-            // If fetch failed, preserve existing data if available
-            if (existingData[username]?.[period]) {
-              aggregatedData[username][period] = existingData[username][period];
-            }
+        const changeStatus = gainsChanged ? '(changed)' : '(unchanged)';
+        console.log(`✓ Fetched ${username} (${period}) ${changeStatus}`);
+      } catch (error) {
+        console.error(`✗ Failed to fetch ${username} (${period}):`, error);
 
-            return { username, period, success: false, error };
-          }
-        })
-      );
+        // If fetch failed, preserve existing data if available
+        if (existingData[username]?.[period]) {
+          aggregatedData[username][period] = existingData[username][period];
+        }
+      }
+    }
+  }
 
-      return { username, periodResults };
-    })
-  );
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`Processed ${requestCount} API requests in ${elapsed}s`);
 
   // Smart caching: only write if data actually changed
   if (hasChanges) {
@@ -220,11 +272,7 @@ export async function customScheduledHandler(env: Env): Promise<void> {
     console.log('Skipped OSRS KV write (no gains changed)');
   }
 
-  // Log summary
-  const successful = results.filter(r => r.status === 'fulfilled').length;
-  const failed = results.filter(r => r.status === 'rejected').length;
-
-  console.log(`OSRS scheduled handler completed: ${successful} characters processed, ${failed} failed`);
+  console.log(`OSRS scheduled handler completed: ${charactersToUpdate.length} characters processed in rotation group ${currentGroup}`);
 }
 
 // Format skill gain for display

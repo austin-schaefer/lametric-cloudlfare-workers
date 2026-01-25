@@ -100,6 +100,7 @@ To stay within Cloudflare's free tier limit (1,000 writes/day), the scheduled wo
 1. **Throttling:** Counter app only updates once per hour (not every 5 minutes)
 2. **Smart caching:** Only writes to KV if data actually changed
 3. **Aggregated storage:** OSRS app stores all character data in a single KV entry (`app:osrs:alldata`) instead of separate keys per character/period
+4. **Character rotation:** OSRS app divides characters into 6 rotation groups, updating each group every 30 minutes
 
 **OSRS Data Structure:**
 ```json
@@ -115,6 +116,21 @@ To stay within Cloudflare's free tier limit (1,000 writes/day), the scheduled wo
 
 This reduces writes from ~1,152/day to ~150-400/day depending on data change frequency.
 
+### OSRS App Rate Limiting
+
+The OSRS app implements sophisticated rate limiting to respect Wise Old Man's 100 requests/minute limit:
+
+1. **Rotation groups:** Characters are hashed into 6 groups (0-5)
+2. **30-minute cycles:** Each group updates every 30 minutes (6 groups × 5-min cron = 30 min)
+3. **Sequential processing:** Characters processed one-at-a-time with 700ms delays between API calls
+4. **Scalability:** With 500 characters:
+   - 500 ÷ 6 groups = ~83 characters per group
+   - 83 × 3 periods = 249 API requests per batch
+   - 249 requests × 0.7s = ~175 seconds (under 3 minutes)
+   - Well within 100 req/min limit and 5-minute cron window
+
+This ensures the service scales gracefully without hitting rate limits or causing API abuse.
+
 ## Wrangler Configuration
 
 `wrangler.toml` defines:
@@ -123,6 +139,14 @@ This reduces writes from ~1,152/day to ~150-400/day depending on data change fre
 - Environment-specific KV namespace IDs
 
 Secrets (API keys) are set via `wrangler secret put` and accessed as `env.KEY_NAME`.
+
+### Required Secrets
+
+**WISEOLDMAN_API_KEY** (OSRS app)
+- Official Wise Old Man API key for enhanced rate limits and priority access
+- Set in production: `wrangler secret put WISEOLDMAN_API_KEY`
+- Set for local dev: Add `WISEOLDMAN_API_KEY=your-key-here` to `.dev.vars` file
+- The app will work without the key but with lower rate limits
 
 ## Security and Secrets Management
 

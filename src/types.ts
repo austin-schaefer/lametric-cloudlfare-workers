@@ -24,5 +24,6 @@ export interface AppConfig {
 
 export interface Env {
   CLOCK_DATA: KVNamespace;
+  WISEOLDMAN_API_KEY?: string;
   [key: string]: any;
 }
