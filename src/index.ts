@@ -28,6 +28,59 @@ export default {
       }
 
       try {
+        // OSRS app has custom request handling
+        if (appName === 'osrs') {
+          const { addCharacterToRegistry } = await import('./apps/osrs');
+          const { createFrame, createResponse } = await import('./utils/lametric');
+
+          // Parse query parameters
+          const username = url.searchParams.get('username');
+          const period = url.searchParams.get('period') || 'day';
+
+          // Validate inputs
+          if (!username) {
+            return new Response(JSON.stringify({
+              error: 'Username required. Add ?username=YourName to URL'
+            }), {
+              status: 400,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          if (!['day', 'week', 'month'].includes(period)) {
+            return new Response(JSON.stringify({
+              error: 'Invalid period. Use day, week, or month'
+            }), {
+              status: 400,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Add to registry (idempotent)
+          await addCharacterToRegistry(env, username);
+
+          // Fetch cached data
+          const dataKey = `app:osrs:data:${username}:${period}`;
+          const cachedData = await env.CLOCK_DATA.get(dataKey);
+
+          if (!cachedData) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Loading data...', 'i3313')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Format and return
+          const data = JSON.parse(cachedData);
+          const response = app.formatResponse(data, username, period);
+
+          return new Response(JSON.stringify(response), {
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Standard app handling
         const cachedData = await env.CLOCK_DATA.get(app.kvKey);
 
         if (!cachedData) {

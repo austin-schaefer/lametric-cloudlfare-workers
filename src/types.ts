@@ -18,7 +18,8 @@ export interface AppConfig {
   name: string;
   kvKey: string;
   fetchData: (env: Env) => Promise<any>;
-  formatResponse: (data: any) => LaMetricResponse;
+  formatResponse: (data: any, ...args: any[]) => LaMetricResponse;
+  customScheduledHandler?: (env: Env) => Promise<void>;
 }
 
 export interface Env {
