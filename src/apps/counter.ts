@@ -16,6 +16,6 @@ export async function fetchData(env: Env): Promise<number> {
 export function formatResponse(count: number): LaMetricResponse {
   const randomIconId = Math.floor(Math.random() * 70000) + 1;
   return createResponse([
-    createFrame(`Count: ${count}`, `i${randomIconId}`)
+    createFrame(`#${count}`, `i${randomIconId}`)
   ]);
 }

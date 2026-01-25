@@ -20,7 +20,16 @@ A Cloudflare Workers backend service for LaMetric Time clocks. The architecture 
 
 ```bash
 # Local development with hot reload
-wrangler dev
+wrangler dev --local
+
+# Local development with scheduled event testing
+wrangler dev --local --test-scheduled
+
+# Trigger scheduled event in local dev (when using --test-scheduled)
+curl http://localhost:8787/__scheduled
+
+# Login to Cloudflare (first time only)
+wrangler login
 
 # Deploy to Cloudflare
 wrangler deploy
@@ -32,6 +41,7 @@ wrangler tail
 wrangler kv:namespace create CLOCK_DATA
 wrangler kv:key list --binding CLOCK_DATA
 wrangler kv:key get --binding CLOCK_DATA "keyname"
+wrangler kv:key put --binding CLOCK_DATA "keyname" "value"
 
 # Manage secrets
 wrangler secret put KEY_NAME
@@ -92,9 +102,59 @@ The cron handler (runs every 5 minutes by default):
 
 Secrets (API keys) are set via `wrangler secret put` and accessed as `env.KEY_NAME`.
 
+## Deployment Notes
+
+**First-time deployment:**
+1. Run `wrangler login` to authenticate
+2. Register a workers.dev subdomain via Cloudflare dashboard (Workers & Pages section)
+3. Run `wrangler deploy`
+4. If scheduled worker hasn't run yet, manually seed KV: `wrangler kv:key put --binding CLOCK_DATA "app:appname" "initial_value"`
+
+**Scheduled workers:**
+- May take several minutes to activate after first deployment
+- Run at the configured cron interval (:00, :05, :10, etc.)
+- Manual KV seeding allows immediate testing without waiting for first cron run
+
+## Testing
+
+**Local testing:**
+```bash
+# Start dev server with scheduled event support
+wrangler dev --local --test-scheduled
+
+# In another terminal, trigger scheduled event
+curl http://localhost:8787/__scheduled
+
+# Test endpoints
+curl http://localhost:8787/health
+curl http://localhost:8787/apps/counter
+```
+
+**Production testing:**
+```bash
+# Monitor live logs
+wrangler tail --format pretty
+
+# Test endpoints
+curl https://your-worker.workers.dev/health
+curl https://your-worker.workers.dev/apps/counter
+```
+
+## LaMetric Device Configuration
+
+When creating a LaMetric app:
+1. Select "Indicator app" or "Metric app"
+2. Choose "Poll" as data source
+3. Set URL to: `https://your-worker.workers.dev/apps/appname`
+4. Set poll frequency (e.g., 1 minute)
+5. Select "Predefined (LaMetric Format)" as data format
+6. **Important:** Define a fallback frame (icon + text) - this displays if the API is unreachable. Example: any icon with text `#0` or `Loading...`
+7. The fallback frame is required by LaMetric's UI but will be overridden by your API's actual data
+
 ## Adding New Apps
 
 1. Create `src/apps/newapp.ts` following the module pattern
 2. Register in `src/apps/index.ts`
 3. Add required API keys: `wrangler secret put API_KEY_NAME`
-4. Configure LaMetric device to poll `https://your-worker.workers.dev/apps/newapp`
+4. Deploy: `wrangler deploy`
+5. Configure LaMetric device to poll `https://your-worker.workers.dev/apps/newapp`
