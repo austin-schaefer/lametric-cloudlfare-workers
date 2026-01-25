@@ -9,7 +9,7 @@ export async function fetchData(env: Env): Promise<number> {
   const count = currentValue ? parseInt(currentValue, 10) : 0;
   const newCount = count + 1;
 
-  await env.CLOCK_DATA.put(kvKey, newCount.toString());
+  // Note: KV write now handled by scheduled.ts with smart caching
   return newCount;
 }
 

@@ -150,10 +150,13 @@ export async function customScheduledHandler(env: Env): Promise<void> {
   console.log(`Fetching data for ${registry.length} character(s): ${registry.join(', ')}`);
 
   const periods = ['day', 'week', 'month'];
+  const aggregatedData: Record<string, Record<string, CachedOSRSData>> = {};
 
   // Process each character
   const results = await Promise.allSettled(
     registry.map(async (username) => {
+      aggregatedData[username] = {};
+
       // Fetch all periods in parallel for this character
       const periodResults = await Promise.allSettled(
         periods.map(async (period) => {
@@ -167,13 +170,12 @@ export async function customScheduledHandler(env: Env): Promise<void> {
               gains,
             };
 
-            const dataKey = `app:osrs:data:${username}:${period}`;
-            await env.CLOCK_DATA.put(dataKey, JSON.stringify(cachedData));
+            aggregatedData[username][period] = cachedData;
 
-            console.log(`✓ Updated ${username} (${period})`);
+            console.log(`✓ Fetched ${username} (${period})`);
             return { username, period, success: true };
           } catch (error) {
-            console.error(`✗ Failed to update ${username} (${period}):`, error);
+            console.error(`✗ Failed to fetch ${username} (${period}):`, error);
             return { username, period, success: false, error };
           }
         })
@@ -182,6 +184,17 @@ export async function customScheduledHandler(env: Env): Promise<void> {
       return { username, periodResults };
     })
   );
+
+  // Smart caching: only write if data changed
+  const newValue = JSON.stringify(aggregatedData);
+  const existingValue = await env.CLOCK_DATA.get('app:osrs:alldata');
+
+  if (existingValue !== newValue) {
+    await env.CLOCK_DATA.put('app:osrs:alldata', newValue);
+    console.log('✓ Wrote aggregated OSRS data to KV (data changed)');
+  } else {
+    console.log('Skipped OSRS KV write (no changes)');
+  }
 
   // Log summary
   const successful = results.filter(r => r.status === 'fulfilled').length;

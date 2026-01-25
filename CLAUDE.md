@@ -88,10 +88,32 @@ The request handler reads from KV; it does not fetch external APIs directly.
 
 The cron handler (runs every 5 minutes by default):
 - Iterates through all registered apps
-- Calls each app's `fetchData()`
+- Calls each app's `fetchData()` or custom handler
 - Stores results in KV using the app's `kvKey`
 - Includes error handling per-app (one failure shouldn't cascade)
 - Logs all successes/failures
+
+### KV Write Optimizations
+
+To stay within Cloudflare's free tier limit (1,000 writes/day), the scheduled worker implements:
+
+1. **Throttling:** Counter app only updates once per hour (not every 5 minutes)
+2. **Smart caching:** Only writes to KV if data actually changed
+3. **Aggregated storage:** OSRS app stores all character data in a single KV entry (`app:osrs:alldata`) instead of separate keys per character/period
+
+**OSRS Data Structure:**
+```json
+{
+  "username1": {
+    "day": {username, period, lastUpdated, gains},
+    "week": {username, period, lastUpdated, gains},
+    "month": {username, period, lastUpdated, gains}
+  },
+  "username2": { ... }
+}
+```
+
+This reduces writes from ~1,152/day to ~150-400/day depending on data change frequency.
 
 ## Wrangler Configuration
 

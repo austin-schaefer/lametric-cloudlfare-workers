@@ -54,14 +54,25 @@ export default {
             });
           }
 
-          // Add to registry (idempotent)
+          // Add to registry (idempotent - only writes if new user)
           await addCharacterToRegistry(env, username);
 
-          // Fetch cached data
-          const dataKey = `app:osrs:data:${username}:${period}`;
-          const cachedData = await env.CLOCK_DATA.get(dataKey);
+          // Fetch cached data from aggregated storage
+          const allDataRaw = await env.CLOCK_DATA.get('app:osrs:alldata');
 
-          if (!cachedData) {
+          if (!allDataRaw) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Loading data...', 'i3313')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Parse aggregated data and extract specific user/period
+          const allData = JSON.parse(allDataRaw);
+          const userData = allData[username];
+
+          if (!userData || !userData[period]) {
             return new Response(JSON.stringify(
               createResponse([createFrame('Loading data...', 'i3313')])
             ), {
@@ -70,7 +81,7 @@ export default {
           }
 
           // Format and return
-          const data = JSON.parse(cachedData);
+          const data = userData[period];
           const response = app.formatResponse(data, username, period);
 
           return new Response(JSON.stringify(response), {

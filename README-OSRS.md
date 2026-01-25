@@ -169,31 +169,40 @@ After scheduled worker runs:
 ["Lynx Titan", "Zezima", "TestUser"]
 ```
 
-### Per-Character Data
-**KV Keys**: `app:osrs:data:{username}:{period}`
-**Format**: Cached WiseOldMan API response
+### Aggregated Character Data
+**KV Key**: `app:osrs:alldata` (single entry for all characters)
+**Format**: Nested object with all character data
 ```json
 {
-  "username": "Lynx Titan",
-  "period": "day",
-  "lastUpdated": "2026-01-24T12:00:00Z",
-  "gains": {
-    "startsAt": "2026-01-23T12:00:00Z",
-    "endsAt": "2026-01-24T12:00:00Z",
-    "data": {
-      "skills": {
-        "overall": {
-          "experience": { "gained": 139900 }
-        },
-        "attack": {
-          "experience": { "gained": 20 }
+  "Lynx Titan": {
+    "day": {
+      "username": "Lynx Titan",
+      "period": "day",
+      "lastUpdated": "2026-01-24T12:00:00Z",
+      "gains": {
+        "startsAt": "2026-01-23T12:00:00Z",
+        "endsAt": "2026-01-24T12:00:00Z",
+        "data": {
+          "skills": {
+            "overall": { "experience": { "gained": 139900 } },
+            "attack": { "experience": { "gained": 20 } }
+            // ... all 24 skills
+          }
         }
-        // ... all 24 skills
       }
-    }
+    },
+    "week": { /* ... */ },
+    "month": { /* ... */ }
+  },
+  "Zezima": {
+    "day": { /* ... */ },
+    "week": { /* ... */ },
+    "month": { /* ... */ }
   }
 }
 ```
+
+**Optimization:** All character data stored in a single KV entry to minimize write operations and stay within Cloudflare's free tier limits (1,000 writes/day).
 
 ### Request Flow
 
@@ -202,15 +211,16 @@ User's LaMetric Device
   │
   ├─> GET /apps/osrs?username=Lynx%20Titan&period=day
   │
-  ├─> Worker checks KV for: app:osrs:data:Lynx Titan:day
+  ├─> Worker reads aggregated data from KV: app:osrs:alldata
   │
-  ├─> If not found:
+  ├─> If not found or username not in data:
   │   ├─> Add "Lynx Titan" to character registry
   │   └─> Return: { "frames": [{ "text": "Loading data...", "icon": "i3313" }] }
   │
   └─> If found:
+      ├─> Extract data.["Lynx Titan"]["day"]
       ├─> Format 24 skills as LaMetric frames
-      └─> Return: { "frames": [{ "text": "Overall: +139.9k", "icon": "i186" }, ...] }
+      └─> Return: { "frames": [{ "text": "+139.9k", "icon": "i72683" }, ...] }
 ```
 
 ### Scheduled Worker Flow
@@ -222,10 +232,16 @@ Cron Trigger (Every 5 minutes)
   │   ["Lynx Titan", "Zezima"]
   │
   ├─> For each character:
-  │   ├─> Fetch day/week/month gains from WiseOldMan API (parallel)
-  │   ├─> Store at: app:osrs:data:{username}:day
-  │   ├─> Store at: app:osrs:data:{username}:week
-  │   └─> Store at: app:osrs:data:{username}:month
+  │   └─> Fetch day/week/month gains from WiseOldMan API (parallel)
+  │
+  ├─> Aggregate all data into single object:
+  │   {
+  │     "Lynx Titan": { "day": {...}, "week": {...}, "month": {...} },
+  │     "Zezima": { "day": {...}, "week": {...}, "month": {...} }
+  │   }
+  │
+  ├─> Smart caching: Compare with existing KV data
+  │   └─> Only write to app:osrs:alldata if data changed
   │
   └─> Log results
 ```
@@ -293,8 +309,14 @@ curl "http://localhost:8787/apps/osrs?username=Test&period=invalid"  # Invalid p
 # View character registry
 npx wrangler kv:key get --binding CLOCK_DATA "app:osrs:characters"
 
-# View specific character data
-npx wrangler kv:key get --binding CLOCK_DATA "app:osrs:data:Lynx Titan:day"
+# View all aggregated character data
+npx wrangler kv:key get --binding CLOCK_DATA "app:osrs:alldata" | jq .
+
+# View specific character's data
+npx wrangler kv:key get --binding CLOCK_DATA "app:osrs:alldata" | jq '."Lynx Titan"'
+
+# View specific character's day gains
+npx wrangler kv:key get --binding CLOCK_DATA "app:osrs:alldata" | jq '."Lynx Titan".day'
 
 # List all OSRS keys
 npx wrangler kv:key list --binding CLOCK_DATA --prefix "app:osrs"
@@ -353,20 +375,35 @@ GET https://api.wiseoldman.net/v2/players/{username}/gained?period={period}
 ## Scalability
 
 ### Storage
+- Aggregated data structure: All characters stored in single KV entry
 - Each character: ~30KB (3 periods × ~10KB)
-- 100 characters: ~3MB total
-- 1,000 characters: ~30MB total
-- Well within Cloudflare KV limits (no issues expected)
+- 100 characters: ~3MB total (one KV entry)
+- 1,000 characters: ~30MB total (one KV entry)
+- KV value size limit: 25MB (supports ~800 characters)
+- Character registry: Separate small entry
 
 ### API Calls
 - N characters × 3 periods × 12 runs/hour = 36N calls/hour
 - 100 characters = 3,600 API calls/hour
 - WiseOldMan API should handle this easily (free tier)
 
+### KV Write Operations (Optimized)
+**Free tier limit: 1,000 writes/day**
+
+- **OSRS app:** ~50-150 writes/day (1 aggregated write per cron, only when data changes)
+- **Counter app:** ~1-2 writes/day (hourly updates, only when value changes)
+- **Total:** ~51-152 writes/day (85-95% reduction from naive implementation)
+- **Headroom:** 848+ writes/day available for scaling
+
+**Optimization techniques:**
+- Aggregated storage: All character data in single KV entry
+- Smart caching: Only writes when data actually changes
+- Counter throttling: Updates once per hour instead of every 5 minutes
+
 ### Cost (Cloudflare)
-- Free tier: 100,000 requests/day, 1GB storage
-- Typical usage: <1,000 requests/day
-- Cost: **$0/month** for most use cases
+- Free tier: 100,000 requests/day, 1,000 KV writes/day, 1GB storage
+- Typical usage: <1,000 requests/day, ~100 KV writes/day
+- Cost: **$0/month** for most use cases (well within free tier)
 
 ## Troubleshooting
 
