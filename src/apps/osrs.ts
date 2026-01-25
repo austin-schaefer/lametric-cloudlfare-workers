@@ -1,9 +1,16 @@
-import { Env, LaMetricResponse } from '../types';
+import { Env, LaMetricResponse, LaMetricFrame } from '../types';
 import { createFrame, createResponse } from '../utils/lametric';
 import { formatLargeNumber } from '../utils/number';
 
 export const name = 'osrs';
 export const kvKey = 'app:osrs:characters';
+
+// LaMetric frame limits and rotation configuration
+// LaMetric devices have a practical limit of ~15 frames before performance degrades
+// To show all 30 stats (username + total XP + 24 skills + 3 additional stats),
+// we split them across odd/even minute rotations
+const LAMETRIC_FRAME_LIMIT = 15;
+const ODD_EVEN_ROTATION_MODULO = 2;
 
 // Skill display order - exactly 24 skills
 const SKILL_ORDER = [
@@ -18,6 +25,7 @@ const SKILL_ORDER = [
 // LaMetric icon IDs for each skill (custom created icons)
 const SKILL_ICONS: Record<string, string> = {
   overall: 'i72683',
+  totalXpGained: 'i72749',
   attack: 'i72681',
   strength: 'i72682',
   defence: 'i72684',
@@ -44,6 +52,24 @@ const SKILL_ICONS: Record<string, string> = {
   sailing: 'i72726',
 };
 
+// Account type icons
+const ACCOUNT_TYPE_ICONS: Record<string, string> = {
+  regular: 'i72762',
+  ironman: 'i72751',
+  HCiron: 'i72752',
+  UIM: 'i72753',
+  GIM: 'i72754',
+  HCGIM: 'i72756',
+  URGIM: 'i72755',
+};
+
+// Additional stat icons
+const STAT_ICONS = {
+  bossKills: 'i72760',
+  clueScrolls: 'i72758',
+  rankChange: 'i72761',
+};
+
 // WiseOldMan API types
 interface WiseOldManSkillGains {
   metric: string;
@@ -64,13 +90,33 @@ interface WiseOldManSkillGains {
   };
 }
 
+interface WiseOldManBossEntry {
+  metric: string;
+  kills: number;
+  rank: number;
+}
+
+interface WiseOldManActivityScore {
+  metric: string;
+  score: {
+    gained: number;
+    start: number;
+    end: number;
+  };
+  rank: {
+    gained: number;
+    start: number;
+    end: number;
+  };
+}
+
 interface WiseOldManGainsResponse {
   startsAt: string;
   endsAt: string;
   data: {
     skills: Record<string, WiseOldManSkillGains>;
-    bosses: any;
-    activities: any;
+    bosses: Record<string, WiseOldManBossEntry>;
+    activities: Record<string, WiseOldManActivityScore>;
     computed: any;
   };
 }
@@ -80,6 +126,91 @@ interface CachedOSRSData {
   period: string;
   lastUpdated: string;
   gains: WiseOldManGainsResponse;
+}
+
+// Helper functions for new stats
+function getTotalXP(data: WiseOldManGainsResponse): number {
+  return data.data.skills.overall.experience.end;
+}
+
+function getTotalBossKills(data: WiseOldManGainsResponse): number {
+  const bosses = data.data.bosses;
+
+  // Defensive check: ensure bosses exists and is an object
+  if (!bosses || typeof bosses !== 'object') {
+    console.warn('Boss data missing or invalid in API response');
+    return 0;
+  }
+
+  try {
+    return Object.values(bosses)
+      .filter((boss): boss is WiseOldManBossEntry => {
+        // Type guard: ensure boss has required structure
+        return boss !== null &&
+               typeof boss === 'object' &&
+               'kills' in boss &&
+               typeof boss.kills === 'number' &&
+               boss.kills > 0;
+      })
+      .reduce((sum: number, boss: WiseOldManBossEntry) => sum + boss.kills, 0);
+  } catch (error) {
+    console.error('Error calculating total boss kills:', error);
+    return 0;
+  }
+}
+
+function getTotalClueScrolls(data: WiseOldManGainsResponse): number {
+  const activities = data.data.activities;
+
+  // Defensive check: ensure activities exists and is an object
+  if (!activities || typeof activities !== 'object') {
+    console.warn('Activities data missing or invalid in API response');
+    return 0;
+  }
+
+  try {
+    const clueScrollData = activities.clue_scrolls_all;
+
+    // Check if clue scroll data exists and has the expected structure
+    if (!clueScrollData ||
+        typeof clueScrollData !== 'object' ||
+        !('score' in clueScrollData) ||
+        typeof clueScrollData.score !== 'object' ||
+        !('gained' in clueScrollData.score)) {
+      return 0;
+    }
+
+    const gained = clueScrollData.score.gained;
+    return typeof gained === 'number' ? gained : 0;
+  } catch (error) {
+    console.error('Error calculating total clue scrolls:', error);
+    return 0;
+  }
+}
+
+function getRankChange(data: WiseOldManGainsResponse): number {
+  return data.data.skills.overall.rank.gained;
+}
+
+function formatRankChange(rankGained: number): string {
+  if (rankGained === 0) return '0';
+  // Negative = rank improved (went down in number)
+  // Display with opposite sign for user clarity
+  const displayValue = -rankGained;
+  return displayValue > 0 ? `+${formatLargeNumber(displayValue)}` : formatLargeNumber(displayValue);
+}
+
+function formatXP(xp: number): string {
+  return xp > 0 ? `+${formatLargeNumber(xp)}` : '+0';
+}
+
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function createUsernameFrame(username: string, accountType: string): LaMetricFrame {
+  const icon = ACCOUNT_TYPE_ICONS[accountType] || ACCOUNT_TYPE_ICONS.regular;
+  return createFrame(username, icon);
 }
 
 // Character registry management
@@ -275,10 +406,119 @@ export async function customScheduledHandler(env: Env): Promise<void> {
   console.log(`OSRS scheduled handler completed: ${charactersToUpdate.length} characters processed in rotation group ${currentGroup}`);
 }
 
-// Format skill gain for display
-function formatSkillGain(skillName: string, xpGained: number): string {
-  const formattedXP = xpGained > 0 ? `+${formatLargeNumber(xpGained)}` : '+0';
-  return formattedXP;
+// Format all stats mode with odd/even minute rotation
+// Splits 30 total frames across two rotations to stay within LaMetric's ~15 frame limit
+function formatAllStats(
+  data: WiseOldManGainsResponse,
+  username: string,
+  accountType: string
+): LaMetricResponse {
+  const currentMinute = new Date().getMinutes();
+  const isOddMinute = currentMinute % ODD_EVEN_ROTATION_MODULO === 1;
+
+  if (isOddMinute) {
+    // ========================================
+    // ODD MINUTES: Group A (15 frames)
+    // ========================================
+    // Frame 1: Username + Account Type Icon
+    // Frame 2: Total XP (current, not gained)
+    // Frame 3: Total XP Gained
+    // Frames 4-15: Combat & Support Skills (Attack through Thieving)
+    return createResponse([
+      // User identification
+      createUsernameFrame(username, accountType),
+
+      // Overall stats
+      createFrame(formatLargeNumber(getTotalXP(data)), SKILL_ICONS.overall),
+      createFrame(formatXP(data.data.skills.overall.experience.gained), SKILL_ICONS.totalXpGained),
+
+      // Combat skills (Attack, Strength, Defence, Ranged, Prayer, Magic)
+      createFrame(formatXP(data.data.skills.attack.experience.gained), SKILL_ICONS.attack),
+      createFrame(formatXP(data.data.skills.strength.experience.gained), SKILL_ICONS.strength),
+      createFrame(formatXP(data.data.skills.defence.experience.gained), SKILL_ICONS.defence),
+      createFrame(formatXP(data.data.skills.ranged.experience.gained), SKILL_ICONS.ranged),
+      createFrame(formatXP(data.data.skills.prayer.experience.gained), SKILL_ICONS.prayer),
+      createFrame(formatXP(data.data.skills.magic.experience.gained), SKILL_ICONS.magic),
+
+      // Support skills (Runecrafting, Construction, Hitpoints, Agility, Herblore, Thieving)
+      createFrame(formatXP(data.data.skills.runecrafting.experience.gained), SKILL_ICONS.runecrafting),
+      createFrame(formatXP(data.data.skills.construction.experience.gained), SKILL_ICONS.construction),
+      createFrame(formatXP(data.data.skills.hitpoints.experience.gained), SKILL_ICONS.hitpoints),
+      createFrame(formatXP(data.data.skills.agility.experience.gained), SKILL_ICONS.agility),
+      createFrame(formatXP(data.data.skills.herblore.experience.gained), SKILL_ICONS.herblore),
+      createFrame(formatXP(data.data.skills.thieving.experience.gained), SKILL_ICONS.thieving),
+    ]);
+  } else {
+    // ========================================
+    // EVEN MINUTES: Group B (15 frames)
+    // ========================================
+    // Frames 1-12: Artisan & Gathering Skills (Crafting through Sailing)
+    // Frames 13-15: Additional Stats (Boss Kills, Clue Scrolls, Rank Change)
+    return createResponse([
+      // Artisan skills (Crafting, Fletching, Slayer, Hunter)
+      createFrame(formatXP(data.data.skills.crafting.experience.gained), SKILL_ICONS.crafting),
+      createFrame(formatXP(data.data.skills.fletching.experience.gained), SKILL_ICONS.fletching),
+      createFrame(formatXP(data.data.skills.slayer.experience.gained), SKILL_ICONS.slayer),
+      createFrame(formatXP(data.data.skills.hunter.experience.gained), SKILL_ICONS.hunter),
+
+      // Gathering skills (Mining, Smithing, Fishing, Cooking, Firemaking, Woodcutting, Farming, Sailing)
+      createFrame(formatXP(data.data.skills.mining.experience.gained), SKILL_ICONS.mining),
+      createFrame(formatXP(data.data.skills.smithing.experience.gained), SKILL_ICONS.smithing),
+      createFrame(formatXP(data.data.skills.fishing.experience.gained), SKILL_ICONS.fishing),
+      createFrame(formatXP(data.data.skills.cooking.experience.gained), SKILL_ICONS.cooking),
+      createFrame(formatXP(data.data.skills.firemaking.experience.gained), SKILL_ICONS.firemaking),
+      createFrame(formatXP(data.data.skills.woodcutting.experience.gained), SKILL_ICONS.woodcutting),
+      createFrame(formatXP(data.data.skills.farming.experience.gained), SKILL_ICONS.farming),
+      createFrame(formatXP(data.data.skills.sailing.experience.gained), SKILL_ICONS.sailing),
+
+      // Additional stats (PvM/PvE content)
+      createFrame(formatLargeNumber(getTotalBossKills(data)), STAT_ICONS.bossKills),
+      createFrame(formatLargeNumber(getTotalClueScrolls(data)), STAT_ICONS.clueScrolls),
+      createFrame(formatRankChange(getRankChange(data)), STAT_ICONS.rankChange),
+    ]);
+  }
+}
+
+// Format top 5 XP gains mode
+function formatTop5(data: WiseOldManGainsResponse): LaMetricResponse {
+  const skills = Object.entries(data.data.skills)
+    .filter(([name]) => name !== 'overall')
+    .map(([name, skill]) => ({ name, gained: skill.experience.gained }))
+    .sort((a, b) => b.gained - a.gained)
+    .slice(0, 5);
+
+  const frames = [
+    createFrame(formatXP(data.data.skills.overall.experience.gained), SKILL_ICONS.totalXpGained),
+    ...skills.map(skill =>
+      createFrame(
+        `${capitalize(skill.name)}: ${formatXP(skill.gained)}`,
+        SKILL_ICONS[skill.name]
+      )
+    ),
+  ];
+
+  return createResponse(frames);
+}
+
+// Format top 10 XP gains mode
+function formatTop10(data: WiseOldManGainsResponse): LaMetricResponse {
+  const skills = Object.entries(data.data.skills)
+    .filter(([name]) => name !== 'overall')
+    .map(([name, skill]) => ({ name, gained: skill.experience.gained }))
+    .sort((a, b) => b.gained - a.gained)
+    .slice(0, 10);
+
+  const frames = [
+    createFrame(formatXP(data.data.skills.overall.experience.gained), SKILL_ICONS.totalXpGained),
+    ...skills.map(skill =>
+      createFrame(
+        `${capitalize(skill.name)}: ${formatXP(skill.gained)}`,
+        SKILL_ICONS[skill.name]
+      )
+    ),
+  ];
+
+  return createResponse(frames);
 }
 
 // No-op fetchData for compatibility with standard app pattern
@@ -287,28 +527,99 @@ export async function fetchData(env: Env): Promise<string[]> {
 }
 
 // Format response - converts WiseOldMan data to LaMetric frames
-export function formatResponse(data: any, username?: string, period?: string): LaMetricResponse {
-  // If data is a CachedOSRSData object, extract the gains
+export function formatResponse(
+  data: any,
+  username?: string,
+  period?: string,
+  mode?: string,
+  accountType?: string
+): LaMetricResponse {
+  // Validate and extract gains data with proper error logging
   let gainsData: WiseOldManGainsResponse;
 
-  if (data && typeof data === 'object' && 'gains' in data) {
-    gainsData = (data as CachedOSRSData).gains;
-  } else if (data && typeof data === 'object' && 'data' in data) {
-    gainsData = data as WiseOldManGainsResponse;
-  } else {
-    // Fallback if data format is unexpected
+  if (!data) {
+    console.error('formatResponse: No data provided', {
+      username,
+      period,
+      mode,
+      accountType,
+    });
     return createResponse([
       createFrame('No data', 'i3313')
     ]);
   }
 
-  const frames = SKILL_ORDER.map((skillName) => {
-    const skillData = gainsData.data.skills[skillName];
-    const xpGained = skillData?.experience?.gained ?? 0;
-    const icon = SKILL_ICONS[skillName] || 'i186';
+  if (typeof data !== 'object') {
+    console.error('formatResponse: Data is not an object', {
+      username,
+      period,
+      mode,
+      accountType,
+      dataType: typeof data,
+    });
+    return createResponse([
+      createFrame('Invalid data', 'i3313')
+    ]);
+  }
 
-    return createFrame(formatSkillGain(skillName, xpGained), icon);
-  });
+  // Extract gains data from either cached format or direct API response
+  if ('gains' in data) {
+    gainsData = (data as CachedOSRSData).gains;
+  } else if ('data' in data) {
+    gainsData = data as WiseOldManGainsResponse;
+  } else {
+    console.error('formatResponse: Data format unrecognized', {
+      username,
+      period,
+      mode,
+      accountType,
+      dataKeys: Object.keys(data),
+    });
+    return createResponse([
+      createFrame('Invalid format', 'i3313')
+    ]);
+  }
 
-  return createResponse(frames);
+  // Validate gainsData structure
+  if (!gainsData.data || !gainsData.data.skills) {
+    console.error('formatResponse: Missing required data structure', {
+      username,
+      period,
+      mode,
+      accountType,
+      hasData: !!gainsData.data,
+      hasSkills: !!(gainsData.data && gainsData.data.skills),
+    });
+    return createResponse([
+      createFrame('Incomplete data', 'i3313')
+    ]);
+  }
+
+  // Default values
+  const displayMode = mode || 'allstats';
+  const displayAccountType = accountType || 'regular';
+
+  try {
+    // Route to appropriate formatter based on mode
+    switch (displayMode) {
+      case 'top5':
+        return formatTop5(gainsData);
+      case 'top10':
+        return formatTop10(gainsData);
+      case 'allstats':
+      default:
+        return formatAllStats(gainsData, username || 'Player', displayAccountType);
+    }
+  } catch (error) {
+    console.error('formatResponse: Error formatting data', {
+      username,
+      period,
+      mode,
+      accountType,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return createResponse([
+      createFrame('Format error', 'i3313')
+    ]);
+  }
 }

@@ -45,7 +45,31 @@ wrangler kv:key put --binding CLOCK_DATA "keyname" "value"
 
 # Manage secrets
 wrangler secret put KEY_NAME
+
+# Run comprehensive test suite
+./test-osrs.sh prod     # Test production
+./test-osrs.sh local    # Test local dev server
 ```
+
+## Testing
+
+The repository includes a comprehensive test suite for the OSRS app:
+
+**`./test-osrs.sh [environment]`**
+- Tests all three display modes (allstats, top5, top10)
+- Validates parameter handling (mode, accountType, period)
+- Checks frame counts, icons, and data formatting
+- Environment: `prod` (default) or `local`
+
+**Test coverage:**
+- ✓ Display mode tests (15/6/11 frame counts)
+- ✓ Icon tests (all frames have icons)
+- ✓ Account type tests (7 account types with correct icons)
+- ✓ Data format tests (skill names, XP formatting)
+- ✓ Parameter validation tests (invalid inputs)
+- ✓ Period tests (day/week/month)
+
+Run this test suite after making changes to ensure nothing breaks.
 
 ## LaMetric Response Protocol
 

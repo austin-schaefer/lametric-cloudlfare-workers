@@ -36,6 +36,8 @@ export default {
           // Parse query parameters
           const username = url.searchParams.get('username');
           const period = url.searchParams.get('period') || 'day';
+          const mode = url.searchParams.get('mode') || 'allstats';
+          const accountType = url.searchParams.get('accountType') || 'regular';
 
           // Handle validation request (LaMetric calls without parameters)
           if (!username) {
@@ -49,6 +51,25 @@ export default {
           if (!['day', 'week', 'month'].includes(period)) {
             return new Response(JSON.stringify(
               createResponse([createFrame('Invalid period', 'i72683')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Validate mode
+          if (!['allstats', 'top5', 'top10'].includes(mode)) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Invalid mode', 'i72683')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Validate accountType
+          const validAccountTypes = ['regular', 'ironman', 'HCiron', 'UIM', 'GIM', 'HCGIM', 'URGIM'];
+          if (!validAccountTypes.includes(accountType)) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Invalid account type', 'i72683')])
             ), {
               headers: { 'Content-Type': 'application/json' },
             });
@@ -82,7 +103,24 @@ export default {
 
           // Format and return
           const data = userData[period];
-          const response = app.formatResponse(data, username, period);
+          const response = app.formatResponse(data, username, period, mode, accountType);
+
+          // Check if formatResponse returned an error frame
+          // Error frames have single frame with specific error text patterns
+          if (response.frames.length === 1) {
+            const frameText = response.frames[0].text;
+            const errorPatterns = ['No data', 'Invalid data', 'Invalid format', 'Incomplete data', 'Format error'];
+
+            if (errorPatterns.some(pattern => frameText.includes(pattern))) {
+              console.error('OSRS formatResponse returned error frame', {
+                username,
+                period,
+                mode,
+                accountType,
+                errorText: frameText,
+              });
+            }
+          }
 
           return new Response(JSON.stringify(response), {
             headers: { 'Content-Type': 'application/json' },
