@@ -87,6 +87,14 @@ View live logs from your deployed worker:
 npx wrangler tail --format pretty
 ```
 
+## Apps
+
+### Counter
+Increments a counter every 5 minutes and displays on LaMetric devices. [README-counter.md](README-counter.md)
+
+### OSRS
+Displays Old School RuneScape XP gains from Wise Old Man API. [README-OSRS.md](README-OSRS.md)
+
 ## Adding New Apps
 
 See `CLAUDE.md` for the app module pattern and instructions.
