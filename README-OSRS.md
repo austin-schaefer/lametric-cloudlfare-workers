@@ -102,14 +102,14 @@ LaMetric requires a fallback frame for when the API is unreachable:
 - **Text**: `Loading...`
 
 #### Example Final URL
-When a user installs your app with username "LavaDargon" and period "day", LaMetric will poll:
+When a user installs your app with username "Lynx Titan" and period "day", LaMetric will poll:
 ```
-https://your-worker.workers.dev/apps/osrs?&username=LavaDargon&period=day
+https://your-worker.workers.dev/apps/osrs?&username=Lynx%20Titan&period=day
 ```
 
-For usernames with spaces (e.g., "Lynx Titan"), LaMetric URL-encodes them:
+For usernames without spaces (e.g., "Zezima"), LaMetric polls:
 ```
-https://your-worker.workers.dev/apps/osrs?&username=Lynx%20Titan&period=week
+https://your-worker.workers.dev/apps/osrs?&username=Zezima&period=week
 ```
 
 ### Step 4: Test the App
@@ -137,7 +137,7 @@ Before publishing:
 1. **Open LaMetric app** on mobile device
 2. **Browse App Store** → Search for "OSRS XP Tracker"
 3. **Install app** → Fill in configuration:
-   - OSRS Username: `LavaDargon`
+   - OSRS Username: `Lynx Titan`
    - Time Period: `day`
 4. **Add to device** → Choose position on clock
 5. **Wait ~5 minutes** for first data fetch
@@ -166,7 +166,7 @@ After scheduled worker runs:
 **KV Key**: `app:osrs:characters`
 **Format**: JSON array of usernames
 ```json
-["Lynx Titan", "Zezima", "LavaDargon"]
+["Lynx Titan", "Zezima", "TestUser"]
 ```
 
 ### Per-Character Data
@@ -174,7 +174,7 @@ After scheduled worker runs:
 **Format**: Cached WiseOldMan API response
 ```json
 {
-  "username": "LavaDargon",
+  "username": "Lynx Titan",
   "period": "day",
   "lastUpdated": "2026-01-24T12:00:00Z",
   "gains": {
@@ -200,12 +200,12 @@ After scheduled worker runs:
 ```
 User's LaMetric Device
   │
-  ├─> GET /apps/osrs?username=LavaDargon&period=day
+  ├─> GET /apps/osrs?username=Lynx%20Titan&period=day
   │
-  ├─> Worker checks KV for: app:osrs:data:LavaDargon:day
+  ├─> Worker checks KV for: app:osrs:data:Lynx Titan:day
   │
   ├─> If not found:
-  │   ├─> Add "LavaDargon" to character registry
+  │   ├─> Add "Lynx Titan" to character registry
   │   └─> Return: { "frames": [{ "text": "Loading data...", "icon": "i3313" }] }
   │
   └─> If found:
@@ -219,7 +219,7 @@ User's LaMetric Device
 Cron Trigger (Every 5 minutes)
   │
   ├─> Fetch character registry from KV
-  │   ["LavaDargon", "Zezima"]
+  │   ["Lynx Titan", "Zezima"]
   │
   ├─> For each character:
   │   ├─> Fetch day/week/month gains from WiseOldMan API (parallel)
@@ -271,17 +271,17 @@ npx wrangler dev --local --test-scheduled
 # Terminal 2: Test various scenarios
 
 # Test with new username (should show "Loading data...")
-curl "http://localhost:8787/apps/osrs?username=LavaDargon&period=day"
+curl "http://localhost:8787/apps/osrs?username=Lynx%20Titan&period=day"
 
 # Trigger scheduled worker to fetch data
 curl "http://localhost:8787/__scheduled"
 
 # Test again (should show skill data)
-curl "http://localhost:8787/apps/osrs?username=LavaDargon&period=day" | jq .
+curl "http://localhost:8787/apps/osrs?username=Lynx%20Titan&period=day" | jq .
 
 # Test different periods
-curl "http://localhost:8787/apps/osrs?username=LavaDargon&period=week" | jq .
-curl "http://localhost:8787/apps/osrs?username=LavaDargon&period=month" | jq .
+curl "http://localhost:8787/apps/osrs?username=Lynx%20Titan&period=week" | jq .
+curl "http://localhost:8787/apps/osrs?username=Lynx%20Titan&period=month" | jq .
 
 # Test error cases
 curl "http://localhost:8787/apps/osrs"  # Missing username
@@ -294,7 +294,7 @@ curl "http://localhost:8787/apps/osrs?username=Test&period=invalid"  # Invalid p
 npx wrangler kv:key get --binding CLOCK_DATA "app:osrs:characters"
 
 # View specific character data
-npx wrangler kv:key get --binding CLOCK_DATA "app:osrs:data:LavaDargon:day"
+npx wrangler kv:key get --binding CLOCK_DATA "app:osrs:data:Lynx Titan:day"
 
 # List all OSRS keys
 npx wrangler kv:key list --binding CLOCK_DATA --prefix "app:osrs"
@@ -308,16 +308,16 @@ npx wrangler kv:key list --binding CLOCK_DATA --prefix "app:osrs"
 npx wrangler tail --format pretty
 
 # You'll see:
-# - Character registrations: "Added LavaDargon to character registry"
-# - Scheduled runs: "Fetching data for 2 character(s): LavaDargon, Zezima"
-# - API calls: "✓ Updated LavaDargon (day)"
+# - Character registrations: "Added Lynx Titan to character registry"
+# - Scheduled runs: "Fetching data for 2 character(s): Lynx Titan, Zezima"
+# - API calls: "✓ Updated Lynx Titan (day)"
 # - Errors: "✗ Failed to update Zezima (week): ..."
 ```
 
 ### Test Production Endpoint
 ```bash
 # Test your live worker
-curl "https://your-worker.workers.dev/apps/osrs?username=LavaDargon&period=day" | jq .
+curl "https://your-worker.workers.dev/apps/osrs?username=Lynx%20Titan&period=day" | jq .
 
 # Should return 24 skill frames
 ```
