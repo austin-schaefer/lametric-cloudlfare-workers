@@ -192,13 +192,8 @@ export async function customScheduledHandler(env: Env): Promise<void> {
 
 // Format skill gain for display
 function formatSkillGain(skillName: string, xpGained: number): string {
-  const icon = SKILL_ICONS[skillName] || 'i186';
-  const formattedXP = xpGained > 0 ? `+${formatLargeNumber(xpGained)}` : '0';
-
-  // Capitalize first letter of skill name
-  const displayName = skillName.charAt(0).toUpperCase() + skillName.slice(1);
-
-  return `${displayName}: ${formattedXP}`;
+  const formattedXP = xpGained > 0 ? `+${formatLargeNumber(xpGained)}` : '+0';
+  return `${formattedXP} XP`;
 }
 
 // No-op fetchData for compatibility with standard app pattern
