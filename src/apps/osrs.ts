@@ -150,7 +150,15 @@ export async function customScheduledHandler(env: Env): Promise<void> {
   console.log(`Fetching data for ${registry.length} character(s): ${registry.join(', ')}`);
 
   const periods = ['day', 'week', 'month'];
+
+  // Load existing cached data for comparison
+  const existingDataRaw = await env.CLOCK_DATA.get('app:osrs:alldata');
+  const existingData: Record<string, Record<string, CachedOSRSData>> = existingDataRaw
+    ? JSON.parse(existingDataRaw)
+    : {};
+
   const aggregatedData: Record<string, Record<string, CachedOSRSData>> = {};
+  let hasChanges = false;
 
   // Process each character
   const results = await Promise.allSettled(
@@ -163,19 +171,38 @@ export async function customScheduledHandler(env: Env): Promise<void> {
           try {
             const gains = await fetchWiseOldManData(username, period);
 
+            // Compare gains data (not timestamps) to detect actual changes
+            const existingPeriodData = existingData[username]?.[period];
+            const gainsChanged = !existingPeriodData ||
+              JSON.stringify(existingPeriodData.gains) !== JSON.stringify(gains);
+
+            if (gainsChanged) {
+              hasChanges = true;
+            }
+
+            // Preserve lastUpdated if gains haven't changed, otherwise update it
             const cachedData: CachedOSRSData = {
               username,
               period,
-              lastUpdated: new Date().toISOString(),
+              lastUpdated: gainsChanged
+                ? new Date().toISOString()
+                : (existingPeriodData?.lastUpdated || new Date().toISOString()),
               gains,
             };
 
             aggregatedData[username][period] = cachedData;
 
-            console.log(`✓ Fetched ${username} (${period})`);
-            return { username, period, success: true };
+            const changeStatus = gainsChanged ? '(changed)' : '(unchanged)';
+            console.log(`✓ Fetched ${username} (${period}) ${changeStatus}`);
+            return { username, period, success: true, changed: gainsChanged };
           } catch (error) {
             console.error(`✗ Failed to fetch ${username} (${period}):`, error);
+
+            // If fetch failed, preserve existing data if available
+            if (existingData[username]?.[period]) {
+              aggregatedData[username][period] = existingData[username][period];
+            }
+
             return { username, period, success: false, error };
           }
         })
@@ -185,15 +212,12 @@ export async function customScheduledHandler(env: Env): Promise<void> {
     })
   );
 
-  // Smart caching: only write if data changed
-  const newValue = JSON.stringify(aggregatedData);
-  const existingValue = await env.CLOCK_DATA.get('app:osrs:alldata');
-
-  if (existingValue !== newValue) {
-    await env.CLOCK_DATA.put('app:osrs:alldata', newValue);
-    console.log('✓ Wrote aggregated OSRS data to KV (data changed)');
+  // Smart caching: only write if data actually changed
+  if (hasChanges) {
+    await env.CLOCK_DATA.put('app:osrs:alldata', JSON.stringify(aggregatedData));
+    console.log('✓ Wrote aggregated OSRS data to KV (gains changed)');
   } else {
-    console.log('Skipped OSRS KV write (no changes)');
+    console.log('Skipped OSRS KV write (no gains changed)');
   }
 
   // Log summary
