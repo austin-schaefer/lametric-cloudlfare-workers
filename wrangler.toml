@@ -16,3 +16,18 @@ crons = ["*/5 * * * *"]
 
 # Environment variables for API keys
 # Set via: wrangler secret put KEY_NAME
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
