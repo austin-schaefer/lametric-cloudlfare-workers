@@ -33,6 +33,26 @@ The reviewer will provide:
 - Security and scalability concerns
 - Comment quality check
 
+### `/docs` - Documentation Maintainer
+
+Maintains clean, focused READMEs following anti-bloat philosophy:
+- Enforces file structure (one `README-<app>.md` per app)
+- Reviews uncommitted changes for documentation needs
+- Removes LLM bloat, overselling, and over-documentation
+- Keeps docs neutral, concise, and maintainer-focused
+
+**Usage:**
+```
+/docs
+```
+
+The maintainer will:
+- Check file structure compliance (each app has exactly one README)
+- Analyze uncommitted changes for documentation gaps
+- Review README quality against best practices
+- Offer to consolidate/edit files as needed
+- Suggest improvements without being aggressive
+
 ## Skill Structure
 
 Skills follow the Claude Code skills specification:
