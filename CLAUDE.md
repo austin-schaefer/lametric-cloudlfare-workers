@@ -102,6 +102,48 @@ The cron handler (runs every 5 minutes by default):
 
 Secrets (API keys) are set via `wrangler secret put` and accessed as `env.KEY_NAME`.
 
+## Security and Secrets Management
+
+**CRITICAL: This repository is public on GitHub. Never commit secrets.**
+
+**Safe to commit:**
+- KV namespace IDs (e.g., `d069416f7d2044eda76d4a0e8a1dde56`) - Just identifiers, useless without Cloudflare account access
+- Worker URLs (already public by design)
+- Source code without hardcoded credentials
+
+**NEVER commit:**
+- API keys or tokens
+- Authentication credentials
+- Private keys or certificates
+- `.dev.vars` file (already in `.gitignore`)
+
+**When adding new services/apps:**
+1. **Never hardcode API keys** in source files
+2. Use `wrangler secret put API_KEY_NAME` to store secrets securely in Cloudflare
+3. Access secrets via `env.API_KEY_NAME` in your code
+4. For local development, use `.dev.vars` file (gitignored):
+   ```
+   API_KEY_NAME=your-dev-key-here
+   ```
+5. Before committing, verify no secrets are included:
+   ```bash
+   git diff
+   # Review all changes carefully
+   ```
+
+**Example of proper secret usage:**
+```typescript
+// ❌ WRONG - Never do this
+const apiKey = "sk_live_12345...";
+
+// ✅ CORRECT - Use environment variables
+export async function fetchData(env: Env): Promise<Data> {
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${env.API_KEY_NAME}` }
+  });
+}
+```
+
 ## Deployment Notes
 
 **First-time deployment:**
