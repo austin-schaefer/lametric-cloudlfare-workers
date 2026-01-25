@@ -18,9 +18,15 @@ else
 fi
 
 # Test configuration
-TEST_USERNAME="Zezima"
+TEST_USERNAME="Zezima"  # Legacy test account (may not have recent data)
+
+# Real test accounts (popular OSRS streamers with active data)
+TEST_ACCOUNTS_KEYS=("McTile" "limpwurt" "Northern UIM" "Carl Caskets")
+TEST_ACCOUNTS_VALUES=("regular" "ironman" "UIM" "HCiron")
+
 PASSED=0
 FAILED=0
+SKIPPED=0
 
 # Colors for output
 RED='\033[0;31m'
@@ -62,6 +68,36 @@ check_equals() {
 # Helper function to check if value is greater than threshold
 check_gt() {
     [ "$1" -gt "$2" ]
+}
+
+# Helper function to check if response has valid data (not loading/error)
+has_valid_data() {
+    local response="$1"
+
+    # Check if response has an error field (internal server error, etc.)
+    local has_error=$(echo "$response" | jq -r 'has("error")')
+    if [ "$has_error" = "true" ]; then
+        return 1
+    fi
+
+    # Check if frames array exists
+    local has_frames=$(echo "$response" | jq -r 'has("frames")')
+    if [ "$has_frames" != "true" ]; then
+        return 1
+    fi
+
+    local first_frame_text=$(echo "$response" | jq -r '.frames[0].text // empty')
+
+    # Check for error/loading states
+    if [[ "$first_frame_text" == "Loading data..."* ]] || \
+       [[ "$first_frame_text" == "No data"* ]] || \
+       [[ "$first_frame_text" == "Invalid"* ]] || \
+       [[ "$first_frame_text" == "Configure"* ]] || \
+       [[ -z "$first_frame_text" ]]; then
+        return 1
+    fi
+
+    return 0
 }
 
 echo ""
@@ -312,19 +348,110 @@ run_test \
 echo ""
 
 # ====================
+# Test Suite 7: Real Account Tests
+# ====================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "7. REAL ACCOUNT TESTS (Streamer Accounts)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Test each real account to ensure they're being fetched
+for i in "${!TEST_ACCOUNTS_KEYS[@]}"; do
+    username="${TEST_ACCOUNTS_KEYS[$i]}"
+    account_type="${TEST_ACCOUNTS_VALUES[$i]}"
+    encoded_username=$(echo "$username" | sed 's/ /%20/g')
+
+    # Test 7.x: Account has valid data (not loading/error)
+    echo -n "Testing: $username ($account_type) has data ... "
+    response=$(curl -s "$BASE_URL/apps/osrs?username=$encoded_username&period=day&mode=allstats&accountType=$account_type")
+
+    if has_valid_data "$response"; then
+        echo -e "${GREEN}✓ PASS${NC}"
+        ((PASSED++))
+
+        # Additional validation: Check frame count
+        frame_count=$(echo "$response" | jq '.frames | length')
+        if [ "$frame_count" -eq 15 ]; then
+            echo "  └─ Frame count: $frame_count ✓"
+        else
+            echo -e "  └─ ${YELLOW}Warning: Expected 15 frames, got $frame_count${NC}"
+        fi
+
+        # Check if account has an icon in first frame (odd minutes only)
+        first_icon=$(echo "$response" | jq -r '.frames[0].icon')
+        if [ -n "$first_icon" ] && [ "$first_icon" != "null" ]; then
+            echo "  └─ Has icon: $first_icon ✓"
+        fi
+    else
+        first_frame=$(echo "$response" | jq -r '.frames[0].text')
+        if [[ "$first_frame" == "Loading data..."* ]]; then
+            echo -e "${YELLOW}⊘ SKIP (data not loaded yet)${NC}"
+            ((SKIPPED++))
+            echo "  └─ Account registered but waiting for scheduled worker"
+        else
+            echo -e "${RED}✗ FAIL${NC}"
+            ((FAILED++))
+            echo "  └─ Response: $first_frame"
+        fi
+    fi
+done
+
+echo ""
+
+# Test 7.5: Verify at least one account has non-zero XP gains
+echo -n "Testing: At least one account has XP gains ... "
+found_gains=false
+
+for i in "${!TEST_ACCOUNTS_KEYS[@]}"; do
+    username="${TEST_ACCOUNTS_KEYS[$i]}"
+    encoded_username=$(echo "$username" | sed 's/ /%20/g')
+    response=$(curl -s "$BASE_URL/apps/osrs?username=$encoded_username&period=week&mode=top5")
+
+    if has_valid_data "$response"; then
+        # Check if first frame (total XP gained) shows non-zero gains
+        total_xp_text=$(echo "$response" | jq -r '.frames[0].text')
+
+        # Extract number from "+123k" or "+0" format
+        if [[ "$total_xp_text" != "+0" ]] && [[ "$total_xp_text" == +* ]]; then
+            found_gains=true
+            echo -e "${GREEN}✓ PASS${NC}"
+            echo "  └─ $username has gains: $total_xp_text"
+            ((PASSED++))
+            break
+        fi
+    fi
+done
+
+if [ "$found_gains" = false ]; then
+    echo -e "${YELLOW}⊘ SKIP (no accounts with recent gains)${NC}"
+    ((SKIPPED++))
+    echo "  └─ All accounts may be inactive or data not yet loaded"
+fi
+
+echo ""
+
+# ====================
 # Summary
 # ====================
 echo "=========================================="
 echo "TEST SUMMARY"
 echo "=========================================="
 echo ""
-echo -e "Total tests: $((PASSED + FAILED))"
+echo -e "Total tests: $((PASSED + FAILED + SKIPPED))"
 echo -e "${GREEN}Passed: $PASSED${NC}"
 echo -e "${RED}Failed: $FAILED${NC}"
+echo -e "${YELLOW}Skipped: $SKIPPED${NC}"
 echo ""
 
 if [ $FAILED -eq 0 ]; then
-    echo -e "${GREEN}✓ All tests passed!${NC}"
+    if [ $SKIPPED -eq 0 ]; then
+        echo -e "${GREEN}✓ All tests passed!${NC}"
+    else
+        echo -e "${GREEN}✓ All tests passed${NC} (${SKIPPED} skipped - waiting for data)"
+        echo ""
+        echo "Note: Skipped tests indicate accounts are registered but haven't"
+        echo "      been fetched yet. Wait for the scheduled worker to run."
+    fi
     exit 0
 else
     echo -e "${RED}✗ Some tests failed${NC}"
