@@ -8,15 +8,16 @@ export async function scheduled(
 ): Promise<void> {
   console.log('Scheduled worker triggered at', new Date(event.scheduledTime).toISOString());
 
-  // Calculate which hourly interval we're in (for throttling)
-  const runCount = Math.floor(event.scheduledTime / 300000); // 5-min intervals since epoch
+  // Check if we're at the top of the hour (X:00)
+  const currentTime = new Date(event.scheduledTime);
+  const isTopOfHour = currentTime.getMinutes() === 0;
 
   const results = await Promise.allSettled(
     apps.map(async (app) => {
       try {
-        // Throttle counter app to once per hour (every 12th run)
-        if (app.name === 'counter' && runCount % 12 !== 0) {
-          console.log('Skipping counter update (not hourly interval)');
+        // Throttle counter app to once per hour at X:00
+        if (app.name === 'counter' && !isTopOfHour) {
+          console.log('Skipping counter update (not top of hour)');
           return { app: app.name, success: true, skipped: true };
         }
 
