@@ -1,8 +1,8 @@
-import { AppConfig } from '../types';
+import { AppConfig, Env } from '../types';
 import * as counter from './counter';
 import * as osrs from './osrs';
 
-export const apps: AppConfig[] = [
+const allApps: AppConfig[] = [
   {
     name: counter.name,
     kvKey: counter.kvKey,
@@ -18,6 +18,35 @@ export const apps: AppConfig[] = [
   },
 ];
 
-export function getAppByName(name: string): AppConfig | undefined {
-  return apps.find(app => app.name === name);
+export function getEnabledApps(env: Env): AppConfig[] {
+  if (!env.ENABLED_APPS) {
+    return allApps;
+  }
+
+  const enabledNames = env.ENABLED_APPS.split(',').map(name => name.trim()).filter(name => name);
+  const registeredNames = allApps.map(app => app.name);
+
+  // Validate configured app names
+  const invalidNames = enabledNames.filter(name => !registeredNames.includes(name));
+  if (invalidNames.length > 0) {
+    console.warn(
+      `Invalid app names in ENABLED_APPS: ${invalidNames.join(', ')}. ` +
+      `Valid apps: ${registeredNames.join(', ')}`
+    );
+  }
+
+  const enabledApps = allApps.filter(app => enabledNames.includes(app.name));
+
+  // Log disabled apps for debugging
+  const disabledApps = allApps.filter(app => !enabledNames.includes(app.name));
+  if (disabledApps.length > 0) {
+    console.log(`Disabled apps: ${disabledApps.map(app => app.name).join(', ')}`);
+  }
+
+  return enabledApps;
+}
+
+export function getAppByName(name: string, env: Env): AppConfig | undefined {
+  const enabledApps = getEnabledApps(env);
+  return enabledApps.find(app => app.name === name);
 }
