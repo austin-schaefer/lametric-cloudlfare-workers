@@ -92,8 +92,16 @@ interface WiseOldManSkillGains {
 
 interface WiseOldManBossEntry {
   metric: string;
-  kills: number;
-  rank: number;
+  kills: {
+    gained: number;
+    start: number;
+    end: number;
+  };
+  rank: {
+    gained: number;
+    start: number;
+    end: number;
+  };
 }
 
 interface WiseOldManActivityScore {
@@ -133,6 +141,10 @@ function getTotalXP(data: WiseOldManGainsResponse): number {
   return data.data.skills.overall.experience.end;
 }
 
+function getTotalLevel(data: WiseOldManGainsResponse): number {
+  return data.data.skills.overall.level.end;
+}
+
 function getTotalBossKills(data: WiseOldManGainsResponse): number {
   const bosses = data.data.bosses;
 
@@ -149,10 +161,12 @@ function getTotalBossKills(data: WiseOldManGainsResponse): number {
         return boss !== null &&
                typeof boss === 'object' &&
                'kills' in boss &&
-               typeof boss.kills === 'number' &&
-               boss.kills > 0;
+               typeof boss.kills === 'object' &&
+               'end' in boss.kills &&
+               typeof boss.kills.end === 'number' &&
+               boss.kills.end > 0;
       })
-      .reduce((sum: number, boss: WiseOldManBossEntry) => sum + boss.kills, 0);
+      .reduce((sum: number, boss: WiseOldManBossEntry) => sum + boss.kills.end, 0);
   } catch (error) {
     console.error('Error calculating total boss kills:', error);
     return 0;
@@ -176,12 +190,12 @@ function getTotalClueScrolls(data: WiseOldManGainsResponse): number {
         typeof clueScrollData !== 'object' ||
         !('score' in clueScrollData) ||
         typeof clueScrollData.score !== 'object' ||
-        !('gained' in clueScrollData.score)) {
+        !('end' in clueScrollData.score)) {
       return 0;
     }
 
-    const gained = clueScrollData.score.gained;
-    return typeof gained === 'number' ? gained : 0;
+    const total = clueScrollData.score.end;
+    return typeof total === 'number' ? total : 0;
   } catch (error) {
     console.error('Error calculating total clue scrolls:', error);
     return 0;
@@ -208,9 +222,9 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function createUsernameFrame(username: string, accountType: string): LaMetricFrame {
+function createTotalLevelFrame(totalLevel: number, accountType: string): LaMetricFrame {
   const icon = ACCOUNT_TYPE_ICONS[accountType] || ACCOUNT_TYPE_ICONS.regular;
-  return createFrame(username, icon);
+  return createFrame(`TL ${totalLevel}`, icon);
 }
 
 // Character registry management
@@ -420,13 +434,13 @@ function formatAllStats(
     // ========================================
     // ODD MINUTES: Group A (15 frames)
     // ========================================
-    // Frame 1: Username + Account Type Icon
+    // Frame 1: Total Level + Account Type Icon
     // Frame 2: Total XP (current, not gained)
     // Frame 3: Total XP Gained
     // Frames 4-15: Combat & Support Skills (Attack through Thieving)
     return createResponse([
       // User identification
-      createUsernameFrame(username, accountType),
+      createTotalLevelFrame(getTotalLevel(data), accountType),
 
       // Overall stats
       createFrame(formatLargeNumber(getTotalXP(data)), SKILL_ICONS.overall),
@@ -479,46 +493,32 @@ function formatAllStats(
   }
 }
 
-// Format top 5 XP gains mode
-function formatTop5(data: WiseOldManGainsResponse): LaMetricResponse {
+// Format top N XP gains mode (consolidated helper)
+function formatTopN(data: WiseOldManGainsResponse, count: number): LaMetricResponse {
   const skills = Object.entries(data.data.skills)
     .filter(([name]) => name !== 'overall')
     .map(([name, skill]) => ({ name, gained: skill.experience.gained }))
     .sort((a, b) => b.gained - a.gained)
-    .slice(0, 5);
+    .slice(0, count);
 
   const frames = [
     createFrame(formatXP(data.data.skills.overall.experience.gained), SKILL_ICONS.totalXpGained),
     ...skills.map(skill =>
-      createFrame(
-        `${capitalize(skill.name)}: ${formatXP(skill.gained)}`,
-        SKILL_ICONS[skill.name]
-      )
+      createFrame(formatXP(skill.gained), SKILL_ICONS[skill.name])
     ),
   ];
 
   return createResponse(frames);
 }
 
+// Format top 5 XP gains mode
+function formatTop5(data: WiseOldManGainsResponse): LaMetricResponse {
+  return formatTopN(data, 5);
+}
+
 // Format top 10 XP gains mode
 function formatTop10(data: WiseOldManGainsResponse): LaMetricResponse {
-  const skills = Object.entries(data.data.skills)
-    .filter(([name]) => name !== 'overall')
-    .map(([name, skill]) => ({ name, gained: skill.experience.gained }))
-    .sort((a, b) => b.gained - a.gained)
-    .slice(0, 10);
-
-  const frames = [
-    createFrame(formatXP(data.data.skills.overall.experience.gained), SKILL_ICONS.totalXpGained),
-    ...skills.map(skill =>
-      createFrame(
-        `${capitalize(skill.name)}: ${formatXP(skill.gained)}`,
-        SKILL_ICONS[skill.name]
-      )
-    ),
-  ];
-
-  return createResponse(frames);
+  return formatTopN(data, 10);
 }
 
 // No-op fetchData for compatibility with standard app pattern
