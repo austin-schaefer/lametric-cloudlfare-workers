@@ -16,6 +16,38 @@ A Cloudflare Workers backend service for LaMetric Time clocks. The architecture 
 - **Request handler**: Serves cached KV data formatted for LaMetric protocol
 - **KV Store**: Decouples fetching from serving, prevents rate limits
 
+## Enabling/Disabling Apps
+
+Apps can be toggled on/off via the `ENABLED_APPS` variable in `wrangler.toml`:
+
+```toml
+[vars]
+ENABLED_APPS = "counter,osrs"
+```
+
+**How it works:**
+- Apps listed in `ENABLED_APPS` are fully operational
+- Apps not listed are completely disabled:
+  - Scheduled worker skips them (no API fetches, no KV writes)
+  - Request handler returns 404 for disabled apps
+- Format: comma-separated list of app names
+- Default: If `ENABLED_APPS` is not set, all apps are enabled
+- Invalid app names in the list will be logged as warnings (helps catch typos)
+
+**Example configurations:**
+```toml
+# Enable all apps
+ENABLED_APPS = "counter,osrs"
+
+# Enable only OSRS
+ENABLED_APPS = "osrs"
+
+# Enable only counter
+ENABLED_APPS = "counter"
+```
+
+After changing `ENABLED_APPS`, deploy with `wrangler deploy` for changes to take effect.
+
 ## Development Commands
 
 ```bash
@@ -267,6 +299,7 @@ When creating a LaMetric app:
 
 1. Create `src/apps/newapp.ts` following the module pattern
 2. Register in `src/apps/index.ts`
-3. Add required API keys: `wrangler secret put API_KEY_NAME`
-4. Deploy: `wrangler deploy`
-5. Configure LaMetric device to poll `https://your-worker.workers.dev/apps/newapp`
+3. Add app to `ENABLED_APPS` in `wrangler.toml`: `ENABLED_APPS = "counter,osrs,newapp"`
+4. Add required API keys: `wrangler secret put API_KEY_NAME`
+5. Deploy: `wrangler deploy`
+6. Configure LaMetric device to poll `https://your-worker.workers.dev/apps/newapp`

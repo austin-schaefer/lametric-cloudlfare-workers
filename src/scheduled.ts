@@ -1,5 +1,5 @@
 import { Env } from './types';
-import { apps } from './apps';
+import { getEnabledApps } from './apps';
 
 export async function scheduled(
   event: ScheduledEvent,
@@ -7,6 +7,9 @@ export async function scheduled(
   ctx: ExecutionContext
 ): Promise<void> {
   console.log('Scheduled worker triggered at', new Date(event.scheduledTime).toISOString());
+
+  const apps = getEnabledApps(env);
+  console.log('Enabled apps:', apps.map(app => app.name).join(', '));
 
   // Check if we're at the top of the hour (X:00)
   const currentTime = new Date(event.scheduledTime);

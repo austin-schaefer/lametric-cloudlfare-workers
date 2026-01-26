@@ -18,10 +18,10 @@ export default {
     const appMatch = path.match(/^\/apps\/([^/]+)$/);
     if (appMatch) {
       const appName = appMatch[1];
-      const app = getAppByName(appName);
+      const app = getAppByName(appName, env);
 
       if (!app) {
-        return new Response(JSON.stringify({ error: 'App not found' }), {
+        return new Response(JSON.stringify({ error: 'App not found or disabled' }), {
           status: 404,
           headers: { 'Content-Type': 'application/json' },
         });

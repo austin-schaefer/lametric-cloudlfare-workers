@@ -14,6 +14,12 @@ id = "d069416f7d2044eda76d4a0e8a1dde56"
 [triggers]
 crons = ["*/5 * * * *"]
 
+# App toggle configuration
+# Comma-separated list of enabled apps (e.g., "counter,osrs")
+# Remove an app from this list to completely disable it
+[vars]
+ENABLED_APPS = "counter,osrs"
+
 # Environment variables for API keys
 # Set via: wrangler secret put KEY_NAME
 
