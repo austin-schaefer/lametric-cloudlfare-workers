@@ -28,6 +28,106 @@ export default {
       }
 
       try {
+        // OSRS app has custom request handling
+        if (appName === 'osrs') {
+          const { addCharacterToRegistry } = await import('./apps/osrs');
+          const { createFrame, createResponse } = await import('./utils/lametric');
+
+          // Parse query parameters
+          const username = url.searchParams.get('username');
+          const period = url.searchParams.get('period') || 'day';
+          const mode = url.searchParams.get('mode') || 'allstats';
+          const accountType = url.searchParams.get('accountType') || 'regular';
+
+          // Handle validation request (LaMetric calls without parameters)
+          if (!username) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Configure username', 'i72683')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          if (!['day', 'week', 'month'].includes(period)) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Invalid period', 'i72683')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Validate mode
+          if (!['allstats', 'top5', 'top10'].includes(mode)) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Invalid mode', 'i72683')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Validate accountType
+          const validAccountTypes = ['regular', 'ironman', 'HCiron', 'UIM', 'GIM', 'HCGIM', 'URGIM'];
+          if (!validAccountTypes.includes(accountType)) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Invalid account type', 'i72683')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Add to registry (idempotent - only writes if new user)
+          await addCharacterToRegistry(env, username);
+
+          // Fetch cached data from aggregated storage
+          const allDataRaw = await env.CLOCK_DATA.get('app:osrs:alldata');
+
+          if (!allDataRaw) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Loading data...', 'i3313')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Parse aggregated data and extract specific user/period
+          const allData = JSON.parse(allDataRaw);
+          const userData = allData[username];
+
+          if (!userData || !userData[period]) {
+            return new Response(JSON.stringify(
+              createResponse([createFrame('Loading data...', 'i3313')])
+            ), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Format and return
+          const data = userData[period];
+          const response = app.formatResponse(data, username, period, mode, accountType);
+
+          // Check if formatResponse returned an error frame
+          // Error frames have single frame with specific error text patterns
+          if (response.frames.length === 1) {
+            const frameText = response.frames[0].text;
+            const errorPatterns = ['No data', 'Invalid data', 'Invalid format', 'Incomplete data', 'Format error'];
+
+            if (errorPatterns.some(pattern => frameText.includes(pattern))) {
+              console.error('OSRS formatResponse returned error frame', {
+                username,
+                period,
+                mode,
+                accountType,
+                errorText: frameText,
+              });
+            }
+          }
+
+          return new Response(JSON.stringify(response), {
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Standard app handling
         const cachedData = await env.CLOCK_DATA.get(app.kvKey);
 
         if (!cachedData) {

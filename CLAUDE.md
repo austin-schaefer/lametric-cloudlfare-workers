@@ -45,7 +45,31 @@ wrangler kv:key put --binding CLOCK_DATA "keyname" "value"
 
 # Manage secrets
 wrangler secret put KEY_NAME
+
+# Run comprehensive test suite
+./test-osrs.sh prod     # Test production
+./test-osrs.sh local    # Test local dev server
 ```
+
+## Testing
+
+The repository includes a comprehensive test suite for the OSRS app:
+
+**`./test-osrs.sh [environment]`**
+- Tests all three display modes (allstats, top5, top10)
+- Validates parameter handling (mode, accountType, period)
+- Checks frame counts, icons, and data formatting
+- Environment: `prod` (default) or `local`
+
+**Test coverage:**
+- ✓ Display mode tests (15/6/11 frame counts)
+- ✓ Icon tests (all frames have icons)
+- ✓ Account type tests (7 account types with correct icons)
+- ✓ Data format tests (skill names, XP formatting)
+- ✓ Parameter validation tests (invalid inputs)
+- ✓ Period tests (day/week/month)
+
+Run this test suite after making changes to ensure nothing breaks.
 
 ## LaMetric Response Protocol
 
@@ -88,10 +112,48 @@ The request handler reads from KV; it does not fetch external APIs directly.
 
 The cron handler (runs every 5 minutes by default):
 - Iterates through all registered apps
-- Calls each app's `fetchData()`
+- Calls each app's `fetchData()` or custom handler
 - Stores results in KV using the app's `kvKey`
 - Includes error handling per-app (one failure shouldn't cascade)
 - Logs all successes/failures
+
+### KV Write Optimizations
+
+To stay within Cloudflare's free tier limit (1,000 writes/day), the scheduled worker implements:
+
+1. **Throttling:** Counter app only updates once per hour (not every 5 minutes)
+2. **Smart caching:** Only writes to KV if data actually changed
+3. **Aggregated storage:** OSRS app stores all character data in a single KV entry (`app:osrs:alldata`) instead of separate keys per character/period
+4. **Character rotation:** OSRS app divides characters into 6 rotation groups, updating each group every 30 minutes
+
+**OSRS Data Structure:**
+```json
+{
+  "username1": {
+    "day": {username, period, lastUpdated, gains},
+    "week": {username, period, lastUpdated, gains},
+    "month": {username, period, lastUpdated, gains}
+  },
+  "username2": { ... }
+}
+```
+
+This reduces writes from ~1,152/day to ~150-400/day depending on data change frequency.
+
+### OSRS App Rate Limiting
+
+The OSRS app implements sophisticated rate limiting to respect Wise Old Man's 100 requests/minute limit:
+
+1. **Rotation groups:** Characters are hashed into 6 groups (0-5)
+2. **30-minute cycles:** Each group updates every 30 minutes (6 groups × 5-min cron = 30 min)
+3. **Sequential processing:** Characters processed one-at-a-time with 700ms delays between API calls
+4. **Scalability:** With 500 characters:
+   - 500 ÷ 6 groups = ~83 characters per group
+   - 83 × 3 periods = 249 API requests per batch
+   - 249 requests × 0.7s = ~175 seconds (under 3 minutes)
+   - Well within 100 req/min limit and 5-minute cron window
+
+This ensures the service scales gracefully without hitting rate limits or causing API abuse.
 
 ## Wrangler Configuration
 
@@ -101,6 +163,14 @@ The cron handler (runs every 5 minutes by default):
 - Environment-specific KV namespace IDs
 
 Secrets (API keys) are set via `wrangler secret put` and accessed as `env.KEY_NAME`.
+
+### Required Secrets
+
+**WISEOLDMAN_API_KEY** (OSRS app)
+- Official Wise Old Man API key for enhanced rate limits and priority access
+- Set in production: `wrangler secret put WISEOLDMAN_API_KEY`
+- Set for local dev: Add `WISEOLDMAN_API_KEY=your-key-here` to `.dev.vars` file
+- The app will work without the key but with lower rate limits
 
 ## Security and Secrets Management
 
