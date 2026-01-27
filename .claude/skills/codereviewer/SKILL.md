@@ -1,5 +1,5 @@
 ---
-name: review
+name: codereviewer
 description: Expert code reviewer specializing in Cloudflare Workers, LaMetric Time APIs, and production-grade scalable systems. Catches subtle bugs, LLM anti-patterns, outdated comments, and scalability issues.
 argument-hint: [file-path or code snippet]
 allowed-tools: Read, Grep, Glob

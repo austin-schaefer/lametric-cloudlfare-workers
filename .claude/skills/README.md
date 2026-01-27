@@ -4,7 +4,7 @@ This directory contains custom skills for Claude Code to provide specialized ass
 
 ## Available Skills
 
-### `/review` - Expert Code Reviewer
+### `/codereviewer` - Expert Code Reviewer
 
 Comprehensive code review focused on:
 - Cloudflare Workers best practices
@@ -16,12 +16,12 @@ Comprehensive code review focused on:
 
 **Usage:**
 ```
-/review src/apps/osrs.ts
+/codereviewer src/apps/osrs.ts
 ```
 
 Or simply:
 ```
-/review
+/codereviewer
 ```
 
 Then paste the code you want reviewed.
