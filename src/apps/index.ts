@@ -1,6 +1,7 @@
 import { AppConfig, Env } from '../types';
 import * as counter from './counter';
 import * as osrs from './osrs';
+import * as scryfall from './scryfall';
 
 const allApps: AppConfig[] = [
   {
@@ -15,6 +16,13 @@ const allApps: AppConfig[] = [
     fetchData: osrs.fetchData,
     formatResponse: osrs.formatResponse,
     customScheduledHandler: osrs.customScheduledHandler,
+  },
+  {
+    name: scryfall.name,
+    kvKey: scryfall.kvKey,
+    fetchData: scryfall.fetchData,
+    formatResponse: scryfall.formatResponse,
+    customScheduledHandler: scryfall.customScheduledHandler,
   },
 ];
 

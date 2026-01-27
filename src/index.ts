@@ -14,6 +14,40 @@ export default {
       });
     }
 
+    // Test endpoints for local development (only work on localhost)
+    if (url.hostname === 'localhost' && path.startsWith('/test/')) {
+      const appName = path.replace('/test/', '');
+      const app = getAppByName(appName, env);
+
+      if (!app) {
+        return new Response(JSON.stringify({ error: 'App not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!app.customScheduledHandler) {
+        return new Response(JSON.stringify({ error: 'App has no scheduled handler' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      try {
+        // Call handler without scheduledTime to skip throttling
+        await app.customScheduledHandler(env);
+        return new Response(JSON.stringify({ message: `${appName} handler executed successfully` }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error(`Test endpoint error for ${appName}:`, error);
+        return new Response(JSON.stringify({ error: 'Handler execution failed' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // App endpoints: /apps/:appName
     const appMatch = path.match(/^\/apps\/([^/]+)$/);
     if (appMatch) {
@@ -121,6 +155,60 @@ export default {
               });
             }
           }
+
+          return new Response(JSON.stringify(response), {
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Scryfall app - custom request handling
+        if (appName === 'scryfall') {
+          const { VALID_CARD_TYPES } = await import('./apps/scryfall');
+          const { createFrame, createResponse } = await import('./utils/lametric');
+
+          // Extract and validate parameters
+          const cardType = url.searchParams.get('cardType') || 'paper';
+          const currency = url.searchParams.get('currency') || 'usd';
+
+          // Validate cardType
+          if (!VALID_CARD_TYPES.includes(cardType)) {
+            return new Response(
+              JSON.stringify(createResponse([createFrame('Invalid cardType', 'i3313')])),
+              { status: 400, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // Validate currency
+          const validCurrencies = ['usd', 'eur', 'tix', 'none'];
+          if (!validCurrencies.includes(currency)) {
+            return new Response(
+              JSON.stringify(createResponse([createFrame('Invalid currency', 'i3313')])),
+              { status: 400, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // Get aggregated data from KV
+          const cachedData = await env.CLOCK_DATA.get('app:scryfall:allcards');
+
+          if (!cachedData) {
+            return new Response(
+              JSON.stringify(createResponse([createFrame('Loading...', 'i3313')])),
+              { status: 200, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // Parse aggregated data and extract specific card type
+          const allCards = JSON.parse(cachedData);
+          const data = allCards[cardType];
+
+          if (!data) {
+            return new Response(
+              JSON.stringify(createResponse([createFrame('Loading...', 'i3313')])),
+              { status: 200, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
+          const response = app.formatResponse(data, cardType, currency);
 
           return new Response(JSON.stringify(response), {
             headers: { 'Content-Type': 'application/json' },

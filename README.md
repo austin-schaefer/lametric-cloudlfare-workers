@@ -95,6 +95,9 @@ Increments a counter every 5 minutes and displays on LaMetric devices. [README-c
 ### OSRS
 Displays Old School RuneScape XP gains from Wise Old Man API. [README-OSRS.md](README-OSRS.md)
 
+### Scryfall
+Displays random Magic: The Gathering cards from Scryfall API. [README-scryfall.md](README-scryfall.md)
+
 ## Adding New Apps
 
 See `CLAUDE.md` for the app module pattern and instructions.

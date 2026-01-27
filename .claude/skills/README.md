@@ -4,7 +4,7 @@ This directory contains custom skills for Claude Code to provide specialized ass
 
 ## Available Skills
 
-### `/review` - Expert Code Reviewer
+### `/codereviewer` - Expert Code Reviewer
 
 Comprehensive code review focused on:
 - Cloudflare Workers best practices
@@ -16,12 +16,12 @@ Comprehensive code review focused on:
 
 **Usage:**
 ```
-/review src/apps/osrs.ts
+/codereviewer src/apps/osrs.ts
 ```
 
 Or simply:
 ```
-/review
+/codereviewer
 ```
 
 Then paste the code you want reviewed.
@@ -52,6 +52,25 @@ The maintainer will:
 - Review README quality against best practices
 - Offer to consolidate/edit files as needed
 - Suggest improvements without being aggressive
+
+### `/prdescriber` - PR Description Creator
+
+Creates terse, focused PR descriptions (100-200 words) by comparing current branch against main:
+- Analyzes functional/end-user changes
+- Highlights notable technical changes
+- Provides brief testing instructions
+- Maintains neutral, factual tone (no marketing speak)
+
+**Usage:**
+```
+/prdescriber
+```
+
+The describer will:
+- Compare current branch against main
+- Draft 100-200 word description covering functional changes, technical details, and testing
+- Focus on impact, not implementation minutiae
+- Avoid bloat, overselling, and unnecessary details
 
 ## Skill Structure
 
