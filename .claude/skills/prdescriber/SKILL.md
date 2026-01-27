@@ -91,12 +91,12 @@ git diff main...HEAD
 
 ### Step 3: Draft Description
 
-Write 100-200 words following this template:
+Write 100-200 words following this template (each paragraph as single line):
 
-```markdown
-[Functional changes: 2-4 sentences describing what this enables/fixes/changes]
+```
+[Functional changes: 2-4 sentences on a single line describing what this enables/fixes/changes]
 
-[Technical changes: 1-3 sentences on notable implementation details, if significant]
+[Technical changes: 1-3 sentences on a single line about notable implementation details, if significant]
 
 Testing:
 - [Step 1]
@@ -115,21 +115,32 @@ Testing:
 
 ### Step 4: Output
 
-Present the description in a code block:
+**Use `pbcopy` to avoid terminal line-wrapping issues (macOS):**
 
-```markdown
-[PR description here]
+```bash
+cat << 'EOF' | pbcopy
+[Functional paragraph as single line]
+
+[Technical paragraph as single line if included]
+
+Testing:
+- [Step 1]
+- [Step 2]
+- [Step 3]
+EOF
 ```
 
-Then ask: "Ready to use this description?"
+For Linux, use `xclip -selection clipboard` or `wl-copy` instead of `pbcopy`.
+
+Then confirm: "Done! The PR description is now in your clipboard, ready to paste into GitHub."
 
 ## Examples
 
 ### Good PR Descriptions
 
-```markdown
-Adds Scryfall app displaying random Magic: The Gathering cards with prices.
-Updates hourly via scheduled worker, supports filtering by card type and currency.
+**Example 1:**
+```
+Adds Scryfall app displaying random Magic: The Gathering cards with prices. Updates hourly via scheduled worker, supports filtering by card type and currency.
 
 Uses same throttling pattern as counter app to stay within KV write limits.
 
@@ -139,10 +150,9 @@ Testing:
 - Check icon format (i prefix for static icons)
 ```
 
-```markdown
-Fixes OSRS app rate limiting causing 429 errors from Wise Old Man API.
-Implements rotation groups processing characters sequentially with 700ms delays.
-Now supports 500+ characters without hitting rate limits.
+**Example 2:**
+```
+Fixes OSRS app rate limiting causing 429 errors from Wise Old Man API. Implements rotation groups processing characters sequentially with 700ms delays. Now supports 500+ characters without hitting rate limits.
 
 Testing:
 - Add multiple characters to CHARACTERS array
@@ -150,9 +160,9 @@ Testing:
 - Verify all characters update within 30-minute cycle
 ```
 
-```markdown
-Removes deprecated counter endpoint and consolidates testing routes.
-Test endpoints now under /test/* prefix instead of scattered locations.
+**Example 3:**
+```
+Removes deprecated counter endpoint and consolidates testing routes. Test endpoints now under /test/* prefix instead of scattered locations.
 
 Testing:
 - curl http://localhost:8787/test/counter (works)
@@ -195,11 +205,10 @@ If the diff shows only trivial changes (typos, formatting), say so:
 
 **Multiple unrelated changes:**
 Group by functional area:
-```markdown
+```
 Adds Scryfall MTG card app and fixes OSRS rate limiting bug.
 
-Scryfall app updates hourly, supports card type/currency filters.
-OSRS fix implements rotation groups with 700ms delays between requests.
+Scryfall app updates hourly, supports card type/currency filters. OSRS fix implements rotation groups with 700ms delays between requests.
 
 Testing:
 - Scryfall: curl /apps/scryfall, verify card data
@@ -208,7 +217,7 @@ Testing:
 
 **Only documentation changes:**
 Keep it ultra-brief:
-```markdown
+```
 Updates CLAUDE.md to document throttling patterns and test endpoints.
 ```
 
