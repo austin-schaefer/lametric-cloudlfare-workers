@@ -311,7 +311,7 @@ async function sleep(ms: number): Promise<void> {
 }
 
 // Custom scheduled handler (called by scheduled.ts)
-export async function customScheduledHandler(env: Env): Promise<void> {
+export async function customScheduledHandler(env: Env, scheduledTime?: number): Promise<void> {
   console.log('OSRS scheduled handler started');
 
   const registry = await getCharacterRegistry(env);

@@ -286,7 +286,9 @@ curl https://your-worker.workers.dev/apps/counter
 
 ## LaMetric Device Configuration
 
-When creating a LaMetric app:
+### Basic App Setup (No Parameters)
+
+For apps without URL parameters (e.g., counter):
 1. Select "Indicator app" or "Metric app"
 2. Choose "Poll" as data source
 3. Set URL to: `https://your-worker.workers.dev/apps/appname`
@@ -294,6 +296,42 @@ When creating a LaMetric app:
 5. Select "Predefined (LaMetric Format)" as data format
 6. **Important:** Define a fallback frame (icon + text) - this displays if the API is unreachable. Example: any icon with text `#0` or `Loading...`
 7. The fallback frame is required by LaMetric's UI but will be overridden by your API's actual data
+
+### Apps with URL Parameters (Developer Portal)
+
+For apps with configurable parameters (e.g., OSRS, Scryfall), configure in the LaMetric Developer Portal:
+
+**CRITICAL: URL must end with `?` for validation**
+
+When LaMetric validates your app configuration, it will test the URL with just the trailing `?`. Your app must handle this gracefully by using default parameter values.
+
+**Example: OSRS App**
+```
+URL to get data from: https://your-worker.workers.dev/apps/osrs?
+Sample params: &username=&period=day&mode=allstats&accountType=regular
+
+Parameters:
+- TEXT field: id=username, title=Username
+- SINGLE CHOICE: id=period, title=Show gains from last..., choices=[day, week, month]
+- SINGLE CHOICE: id=mode, title=Stats to display, choices=[allstats, top5, top10]
+- SINGLE CHOICE: id=accountType, title=Account type (allstats icon), choices=[regular, ironman, HCiron, UIM, GIM, HCGIM, URGIM]
+```
+
+**Example: Scryfall App**
+```
+URL to get data from: https://your-worker.workers.dev/apps/scryfall?
+Sample params: &cardType=paper&currency=usd
+
+Parameters:
+- SINGLE CHOICE: id=cardType, title=Card type, choices=[old-school, old-border, paper, any]
+- SINGLE CHOICE: id=currency, title=Currency, choices=[usd, eur, tix, none]
+```
+
+**How parameter handling works:**
+1. LaMetric appends parameters like `&param1=value1&param2=value2` to the URL
+2. Your app receives requests like: `https://your-worker.workers.dev/apps/osrs?&username=PlayerName&period=day`
+3. Parse query parameters with `url.searchParams.get('param')`
+4. Provide sensible defaults for when parameters are missing (validation request)
 
 ## Adding New Apps
 

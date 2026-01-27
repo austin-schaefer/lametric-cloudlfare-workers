@@ -27,7 +27,7 @@ export async function scheduled(
         // Check for custom handler
         if (app.customScheduledHandler) {
           console.log(`Using custom handler for ${app.name}`);
-          await app.customScheduledHandler(env);
+          await app.customScheduledHandler(env, event.scheduledTime);
           console.log(`Successfully updated ${app.name}`);
           return { app: app.name, success: true };
         } else {

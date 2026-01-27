@@ -127,6 +127,51 @@ export default {
           });
         }
 
+        // Scryfall app - custom request handling
+        if (appName === 'scryfall') {
+          const { VALID_CARD_TYPES } = await import('./apps/scryfall');
+          const { createFrame, createResponse } = await import('./utils/lametric');
+
+          // Extract and validate parameters
+          const cardType = url.searchParams.get('cardType') || 'paper';
+          const currency = url.searchParams.get('currency') || 'usd';
+
+          // Validate cardType
+          if (!VALID_CARD_TYPES.includes(cardType)) {
+            return new Response(
+              JSON.stringify(createResponse([createFrame('Invalid cardType', 'i3313')])),
+              { status: 400, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // Validate currency
+          const validCurrencies = ['usd', 'eur', 'tix', 'none'];
+          if (!validCurrencies.includes(currency)) {
+            return new Response(
+              JSON.stringify(createResponse([createFrame('Invalid currency', 'i3313')])),
+              { status: 400, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // Get data from KV for specific cardType
+          const kvKey = `app:scryfall:${cardType}`;
+          const cachedData = await env.CLOCK_DATA.get(kvKey);
+
+          if (!cachedData) {
+            return new Response(
+              JSON.stringify(createResponse([createFrame('Loading...', 'i3313')])),
+              { status: 200, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
+          const data = JSON.parse(cachedData);
+          const response = app.formatResponse(data, cardType, currency);
+
+          return new Response(JSON.stringify(response), {
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
         // Standard app handling
         const cachedData = await env.CLOCK_DATA.get(app.kvKey);
 
