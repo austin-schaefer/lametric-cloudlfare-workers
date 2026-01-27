@@ -187,9 +187,8 @@ export default {
             );
           }
 
-          // Get data from KV for specific cardType
-          const kvKey = `app:scryfall:${cardType}`;
-          const cachedData = await env.CLOCK_DATA.get(kvKey);
+          // Get aggregated data from KV
+          const cachedData = await env.CLOCK_DATA.get('app:scryfall:allcards');
 
           if (!cachedData) {
             return new Response(
@@ -198,7 +197,17 @@ export default {
             );
           }
 
-          const data = JSON.parse(cachedData);
+          // Parse aggregated data and extract specific card type
+          const allCards = JSON.parse(cachedData);
+          const data = allCards[cardType];
+
+          if (!data) {
+            return new Response(
+              JSON.stringify(createResponse([createFrame('Loading...', 'i3313')])),
+              { status: 200, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
           const response = app.formatResponse(data, cardType, currency);
 
           return new Response(JSON.stringify(response), {

@@ -91,6 +91,13 @@ interface CachedScryfallData {
   fetchedAt: number;
 }
 
+interface AllCardsData {
+  'old-school': CachedScryfallData;
+  'old-border': CachedScryfallData;
+  'paper': CachedScryfallData;
+  'any': CachedScryfallData;
+}
+
 // Helper Functions
 function getYearIcon(year: string): string {
   return YEAR_ICONS[year] || 'i30983';  // Fallback for years outside range
@@ -182,7 +189,7 @@ async function fetchScryfallCard(url: string): Promise<ScryfallCard> {
 
 // Core Exports
 export const name = 'scryfall';
-export const kvKey = 'app:scryfall';  // Base key, actual keys are suffixed with cardType
+export const kvKey = 'app:scryfall:allcards';  // Aggregated storage for all card types
 
 export async function fetchData(env: Env): Promise<CachedScryfallData> {
   // Default implementation - fetches 'paper' card type
@@ -194,19 +201,22 @@ export async function fetchData(env: Env): Promise<CachedScryfallData> {
 }
 
 export async function customScheduledHandler(env: Env, scheduledTime?: number): Promise<void> {
-  // Throttle to once per hour at X:00 (skipped when scheduledTime is undefined, e.g., test endpoints)
+  // Throttle to every 30 minutes at X:00 and X:30 (skipped when scheduledTime is undefined, e.g., test endpoints)
   if (scheduledTime) {
     const currentTime = new Date(scheduledTime);
-    const isTopOfHour = currentTime.getMinutes() === 0;
-    if (!isTopOfHour) {
-      console.log('Skipping scryfall update (not top of hour)');
+    const minutes = currentTime.getMinutes();
+    const isHalfHour = minutes === 0 || minutes === 30;
+    if (!isHalfHour) {
+      console.log('Skipping scryfall update (not X:00 or X:30)');
       return;
     }
   }
 
-  // Fetch all 4 card types at top of hour
+  // Fetch all 4 card types and aggregate into single KV entry
+  const allCards: Partial<AllCardsData> = {};
+
   for (let i = 0; i < VALID_CARD_TYPES.length; i++) {
-    const cardType = VALID_CARD_TYPES[i];
+    const cardType = VALID_CARD_TYPES[i] as keyof AllCardsData;
 
     try {
       const card = await fetchScryfallCard(CARD_TYPE_URLS[cardType]);
@@ -215,21 +225,31 @@ export async function customScheduledHandler(env: Env, scheduledTime?: number): 
         fetchedAt: Date.now()
       };
 
-      const kvKey = `app:scryfall:${cardType}`;
-      const newValue = JSON.stringify(data);
-
-      // Always write - we want fresh random cards each hour
-      await env.CLOCK_DATA.put(kvKey, newValue);
-      console.log(`Updated scryfall card for ${cardType}`);
+      allCards[cardType] = data;
+      console.log(`Fetched scryfall card for ${cardType}`);
     } catch (error) {
       console.error(`Failed to fetch scryfall ${cardType}:`, error);
-      // Keep existing cached data on error
+      // Try to preserve existing data for this card type
+      const existingData = await env.CLOCK_DATA.get(kvKey);
+      if (existingData) {
+        const existingAllCards = JSON.parse(existingData) as AllCardsData;
+        if (existingAllCards[cardType]) {
+          allCards[cardType] = existingAllCards[cardType];
+          console.log(`Preserved existing data for ${cardType}`);
+        }
+      }
     }
 
     // Rate limiting: 100ms delay between requests (except after last one)
     if (i < VALID_CARD_TYPES.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+  }
+
+  // Write all cards to single aggregated KV entry
+  if (Object.keys(allCards).length > 0) {
+    await env.CLOCK_DATA.put(kvKey, JSON.stringify(allCards));
+    console.log(`Updated scryfall aggregated data with ${Object.keys(allCards).length} card types`);
   }
 }
 
