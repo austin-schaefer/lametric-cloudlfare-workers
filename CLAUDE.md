@@ -274,14 +274,20 @@ curl http://localhost:8787/health
 curl http://localhost:8787/apps/counter
 ```
 
-**Testing apps with throttling:**
+**Testing apps with throttling (scryfall, counter, etc.):**
 
-Some apps (like scryfall) use hourly throttling in production to reduce KV writes. To make testing easier in local development:
+Some apps use hourly throttling in production to reduce KV writes. For local development, use test endpoints to bypass throttling:
 
-- Production: throttling is enabled via `ENABLE_SCRYFALL_THROTTLING = "true"` in `wrangler.toml`
-- Local dev: throttling is automatically disabled (env var not set)
-- This allows `curl http://localhost:8787/__scheduled` to work at any time during local testing
-- The scheduled worker will run and populate KV immediately without waiting for top of hour
+```bash
+# Directly invoke app's scheduled handler (skips throttling)
+curl http://localhost:8787/test/scryfall
+curl http://localhost:8787/test/osrs
+
+# This populates KV immediately without waiting for top of hour
+# Only works on localhost for security
+```
+
+This allows immediate testing without waiting for scheduled events or manually seeding KV data.
 
 **Production testing:**
 ```bash

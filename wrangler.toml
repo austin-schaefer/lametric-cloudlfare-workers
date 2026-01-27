@@ -20,10 +20,6 @@ crons = ["*/5 * * * *"]
 [vars]
 ENABLED_APPS = "counter,osrs,scryfall"
 
-# For production: Set ENABLE_SCRYFALL_THROTTLING via Cloudflare dashboard or wrangler secret
-# This enables hourly throttling (X:00 only). Omit in local dev for easier testing.
-# wrangler secret put ENABLE_SCRYFALL_THROTTLING --text "true"
-
 # Environment variables for API keys
 # Set via: wrangler secret put KEY_NAME
 

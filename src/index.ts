@@ -14,6 +14,40 @@ export default {
       });
     }
 
+    // Test endpoints for local development (only work on localhost)
+    if (url.hostname === 'localhost' && path.startsWith('/test/')) {
+      const appName = path.replace('/test/', '');
+      const app = getAppByName(appName, env);
+
+      if (!app) {
+        return new Response(JSON.stringify({ error: 'App not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!app.customScheduledHandler) {
+        return new Response(JSON.stringify({ error: 'App has no scheduled handler' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      try {
+        // Call handler without scheduledTime to skip throttling
+        await app.customScheduledHandler(env);
+        return new Response(JSON.stringify({ message: `${appName} handler executed successfully` }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error(`Test endpoint error for ${appName}:`, error);
+        return new Response(JSON.stringify({ error: 'Handler execution failed' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // App endpoints: /apps/:appName
     const appMatch = path.match(/^\/apps\/([^/]+)$/);
     if (appMatch) {
