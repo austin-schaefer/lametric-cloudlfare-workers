@@ -194,8 +194,9 @@ export async function fetchData(env: Env): Promise<CachedScryfallData> {
 }
 
 export async function customScheduledHandler(env: Env, scheduledTime?: number): Promise<void> {
-  // Throttle to once per hour at X:00
-  if (scheduledTime) {
+  // Throttle to once per hour at X:00 (only in production)
+  // In local dev, ENABLE_SCRYFALL_THROTTLING is undefined, so throttling is skipped
+  if (env.ENABLE_SCRYFALL_THROTTLING === 'true' && scheduledTime) {
     const currentTime = new Date(scheduledTime);
     const isTopOfHour = currentTime.getMinutes() === 0;
     if (!isTopOfHour) {

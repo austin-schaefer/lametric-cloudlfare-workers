@@ -26,5 +26,6 @@ export interface Env {
   CLOCK_DATA: KVNamespace;
   WISEOLDMAN_API_KEY?: string;
   ENABLED_APPS?: string;
+  ENABLE_SCRYFALL_THROTTLING?: string;
   [key: string]: any;
 }
