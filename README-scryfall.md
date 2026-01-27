@@ -10,9 +10,9 @@ Displays random Magic: The Gathering cards from Scryfall API on LaMetric devices
 | `currency` | No | `usd` | `usd`, `eur`, `tix`, `none` |
 
 **Card types:**
-- `old-school`: Pre-Eldraine cards, no digital/funny cards
-- `old-border`: Pre-Scourge border style
-- `paper`: Paper-printable cards only
+- `old-school`: Eldraine and earlier cards, no digital/funny cards
+- `old-border`: Scourge and earlier cards, no funny cards
+- `paper`: Only cards printed in paper
 - `any`: Any card including digital
 
 **Currency:**

@@ -5,60 +5,60 @@ import { createFrame, createResponse } from '../utils/lametric';
 // Mana Symbols - Based on colors (16 total: 5 mono + 10 guilds + 1 colorless)
 const MANA_ICONS: Record<string, string> = {
   // Mono-color
-  W: 'i3313',        // TODO: White mana icon
-  U: 'i3313',        // TODO: Blue mana icon
-  B: 'i3313',        // TODO: Black mana icon
-  R: 'i3313',        // TODO: Red mana icon
-  G: 'i3313',        // TODO: Green mana icon
+  W: 'i30983',        // TODO: White mana icon
+  U: 'i30983',        // TODO: Blue mana icon
+  B: 'i30983',        // TODO: Black mana icon
+  R: 'i30983',        // TODO: Red mana icon
+  G: 'i30983',        // TODO: Green mana icon
 
   // Two-color guilds (Ravnica guild pairs)
-  WU: 'i3313',       // TODO: Azorius (White-Blue) icon
-  WB: 'i3313',       // TODO: Orzhov (White-Black) icon
-  WR: 'i3313',       // TODO: Boros (White-Red) icon
-  WG: 'i3313',       // TODO: Selesnya (White-Green) icon
-  UB: 'i3313',       // TODO: Dimir (Blue-Black) icon
-  UR: 'i3313',       // TODO: Izzet (Blue-Red) icon
-  UG: 'i3313',       // TODO: Simic (Blue-Green) icon
-  BR: 'i3313',       // TODO: Rakdos (Black-Red) icon
-  BG: 'i3313',       // TODO: Golgari (Black-Green) icon
-  RG: 'i3313',       // TODO: Gruul (Red-Green) icon
+  WU: 'i30983',       // TODO: Azorius (White-Blue) icon
+  WB: 'i30983',       // TODO: Orzhov (White-Black) icon
+  WR: 'i30983',       // TODO: Boros (White-Red) icon
+  WG: 'i30983',       // TODO: Selesnya (White-Green) icon
+  UB: 'i30983',       // TODO: Dimir (Blue-Black) icon
+  UR: 'i30983',       // TODO: Izzet (Blue-Red) icon
+  UG: 'i30983',       // TODO: Simic (Blue-Green) icon
+  BR: 'i30983',       // TODO: Rakdos (Black-Red) icon
+  BG: 'i30983',       // TODO: Golgari (Black-Green) icon
+  RG: 'i30983',       // TODO: Gruul (Red-Green) icon
 
   // Colorless and multicolor fallback
-  colorless: 'i3313', // TODO: Colorless mana icon
-  multicolor: 'i3313' // TODO: 3+ color multicolor icon (fallback)
+  colorless: 'i30983', // TODO: Colorless mana icon
+  multicolor: 'i30983' // TODO: 3+ color multicolor icon (fallback)
 };
 
 // Card Type Icons
 const TYPE_ICONS: Record<string, string> = {
-  Creature: 'i3313',      // TODO: Creature icon
-  Instant: 'i3313',       // TODO: Instant icon
-  Sorcery: 'i3313',       // TODO: Sorcery icon
-  Artifact: 'i3313',      // TODO: Artifact icon
-  Enchantment: 'i3313',   // TODO: Enchantment icon
-  Planeswalker: 'i3313',  // TODO: Planeswalker icon
-  Land: 'i3313',          // TODO: Land icon
-  Battle: 'i3313',        // TODO: Battle icon
-  default: 'i3313'        // TODO: Generic card icon
+  Creature: 'i30983',      // TODO: Creature icon
+  Instant: 'i30983',       // TODO: Instant icon
+  Sorcery: 'i30983',       // TODO: Sorcery icon
+  Artifact: 'i30983',      // TODO: Artifact icon
+  Enchantment: 'i30983',   // TODO: Enchantment icon
+  Planeswalker: 'i30983',  // TODO: Planeswalker icon
+  Land: 'i30983',          // TODO: Land icon
+  Battle: 'i30983',        // TODO: Battle icon
+  default: 'i30983'        // TODO: Generic card icon
 };
 
 // Currency Icons
 const CURRENCY_ICONS: Record<string, string> = {
-  usd: 'i3313',  // TODO: USD dollar sign icon
-  eur: 'i3313',  // TODO: EUR euro sign icon
-  tix: 'i3313'   // TODO: TIX ticket icon
+  usd: 'i30983',  // TODO: USD dollar sign icon
+  eur: 'i30983',  // TODO: EUR euro sign icon
+  tix: 'i30983'   // TODO: TIX ticket icon
 };
 
 // Year Icons - one per year from MTG release (1993) through 2030
 // TODO: Update these placeholder icons with real LaMetric icon IDs
 const YEAR_ICONS: Record<string, string> = {
-  '1993': 'i3313', '1994': 'i3313', '1995': 'i3313', '1996': 'i3313', '1997': 'i3313',
-  '1998': 'i3313', '1999': 'i3313', '2000': 'i3313', '2001': 'i3313', '2002': 'i3313',
-  '2003': 'i3313', '2004': 'i3313', '2005': 'i3313', '2006': 'i3313', '2007': 'i3313',
-  '2008': 'i3313', '2009': 'i3313', '2010': 'i3313', '2011': 'i3313', '2012': 'i3313',
-  '2013': 'i3313', '2014': 'i3313', '2015': 'i3313', '2016': 'i3313', '2017': 'i3313',
-  '2018': 'i3313', '2019': 'i3313', '2020': 'i3313', '2021': 'i3313', '2022': 'i3313',
-  '2023': 'i3313', '2024': 'i3313', '2025': 'i3313', '2026': 'i3313', '2027': 'i3313',
-  '2028': 'i3313', '2029': 'i3313', '2030': 'i3313'
+  '1993': 'i30983', '1994': 'i30983', '1995': 'i30983', '1996': 'i30983', '1997': 'i30983',
+  '1998': 'i30983', '1999': 'i30983', '2000': 'i30983', '2001': 'i30983', '2002': 'i30983',
+  '2003': 'i30983', '2004': 'i30983', '2005': 'i30983', '2006': 'i30983', '2007': 'i30983',
+  '2008': 'i30983', '2009': 'i30983', '2010': 'i30983', '2011': 'i30983', '2012': 'i30983',
+  '2013': 'i30983', '2014': 'i30983', '2015': 'i30983', '2016': 'i30983', '2017': 'i30983',
+  '2018': 'i30983', '2019': 'i30983', '2020': 'i30983', '2021': 'i30983', '2022': 'i30983',
+  '2023': 'i30983', '2024': 'i30983', '2025': 'i30983', '2026': 'i30983', '2027': 'i30983',
+  '2028': 'i30983', '2029': 'i30983', '2030': 'i30983'
 };
 
 // Card Type URL Mapping
@@ -93,7 +93,7 @@ interface CachedScryfallData {
 
 // Helper Functions
 function getYearIcon(year: string): string {
-  return YEAR_ICONS[year] || 'i3313';  // Fallback for years outside range
+  return YEAR_ICONS[year] || 'i30983';  // Fallback for years outside range
 }
 
 function getColorIcon(colors: string[]): string {
