@@ -74,6 +74,7 @@ export const VALID_CARD_TYPES = Object.keys(CARD_TYPE_URLS);
 // Type Definitions
 interface ScryfallCard {
   name: string;
+  mana_cost: string;         // "{3}{R}{R}" or "{1}{W/U}{W/U}"
   colors: string[];          // ["R", "G"] or [] for colorless
   released_at: string;       // "1993-08-05"
   set: string;               // "LEA"
@@ -123,9 +124,25 @@ function getColorIcon(colors: string[]): string {
 
 function parseCardType(typeLine: string): string {
   // "Legendary Creature — Dragon" → "Creature"
+  // "Artifact Creature — Golem" → "Artifact Creature"
+  // "Enchantment Creature — Nymph" → "Enchantment Creature"
   // "Instant" → "Instant"
   const beforeDash = typeLine.split('—')[0].trim();
   const words = beforeDash.split(' ');
+
+  // Check for compound types first
+  const compoundTypes = [
+    'Artifact Creature',
+    'Enchantment Creature',
+    'Artifact Land',
+    'Enchantment Land'
+  ];
+
+  for (const compoundType of compoundTypes) {
+    if (beforeDash.includes(compoundType)) {
+      return compoundType;
+    }
+  }
 
   // Find primary type
   const typeKeywords = ['Creature', 'Instant', 'Sorcery', 'Artifact',
@@ -134,6 +151,51 @@ function parseCardType(typeLine: string): string {
     if (typeKeywords.includes(word)) return word;
   }
   return 'Card';  // fallback
+}
+
+function abbreviateType(cardType: string): string {
+  // Abbreviate type names to fit LaMetric display
+  const abbreviations: Record<string, string> = {
+    'Artifact Creature': 'ART.CRE.',
+    'Enchantment Creature': 'ENC.CRE.',
+    'Creature': 'CREAT.',
+    'Enchantment': 'ENCHANT.',
+    'Planeswalker': 'PLANESW.',
+    'Artifact': 'ARTIFACT',  // Already short enough
+    'Instant': 'INSTANT',    // Already short enough
+    'Sorcery': 'SORCERY',    // Already short enough
+    'Land': 'LAND',          // Already short enough
+    'Battle': 'BATTLE'       // Already short enough
+  };
+
+  return abbreviations[cardType] || cardType;
+}
+
+function formatManaCost(manaCost: string): string {
+  // Convert Scryfall mana cost format to display format
+  // Examples:
+  //   "{3}{R}{R}" → "3RR"
+  //   "{2}{W}{U}{B}{R}{G}" → "2WUBRG"
+  //   "{1}{W/U}{W/U}" → "1{W/U}{W/U}"
+  //   "{3}{U/P}" → "3{U/P}"
+  //   "{X}{2}{R}" → "X2R"
+
+  if (!manaCost) return '';
+
+  // Match all mana symbols in braces
+  const symbols = manaCost.match(/\{[^}]+\}/g) || [];
+
+  return symbols.map(symbol => {
+    const content = symbol.slice(1, -1); // Remove braces
+
+    // Keep braces for hybrid and phyrexian mana (contains /)
+    if (content.includes('/')) {
+      return symbol; // Keep original with braces
+    }
+
+    // Remove braces for simple mana (numbers, single letters)
+    return content;
+  }).join('');
 }
 
 function getTypeIcon(cardType: string): string {
@@ -262,23 +324,33 @@ export function formatResponse(
   const { card } = data;
 
   const frames: LaMetricFrame[] = [];
-
-  // Frame 1: Card name + mana symbol
   const colorIcon = getColorIcon(card.colors);
+  const primaryType = parseCardType(card.type_line);
+  const isLand = primaryType === 'Land' || primaryType.includes('Land');
+
+  // Frame 1: Card name
   frames.push(createFrame(card.name, colorIcon));
 
-  // Frame 2: Release info
+  // Frame 2: Casting cost (skip for lands)
+  if (!isLand) {
+    const manaCost = formatManaCost(card.mana_cost);
+    if (manaCost) {
+      frames.push(createFrame(manaCost, colorIcon));
+    }
+  }
+
+  // Frame 3: Card type
+  const abbreviatedType = abbreviateType(primaryType);
+  const typeIcon = getTypeIcon(primaryType);
+  frames.push(createFrame(abbreviatedType, typeIcon));
+
+  // Frame 4: Set + rarity
   const year = parseYear(card.released_at);
   const rarityAbbr = formatRarity(card.rarity);
   const yearIcon = getYearIcon(year);
-  frames.push(createFrame(`${card.set} - ${rarityAbbr}`, yearIcon));
+  frames.push(createFrame(`${card.set}|${rarityAbbr}`, yearIcon));
 
-  // Frame 3: Card type
-  const primaryType = parseCardType(card.type_line);
-  const typeIcon = getTypeIcon(primaryType);
-  frames.push(createFrame(primaryType, typeIcon));
-
-  // Frame 4: Price (skip if currency is 'none' or price is null/missing)
+  // Frame 5: Price (skip if currency is 'none' or price is null/missing)
   if (curr !== 'none') {
     const priceValue = card.prices[curr as keyof typeof card.prices];
     if (priceValue !== null) {
