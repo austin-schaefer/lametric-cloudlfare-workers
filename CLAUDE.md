@@ -81,11 +81,13 @@ wrangler secret put KEY_NAME
 # Run comprehensive test suite
 ./test-osrs.sh prod     # Test production
 ./test-osrs.sh local    # Test local dev server
+./test-stoxx.sh prod    # Test stocks app
+./test-stoxx.sh local   # Test stocks app locally
 ```
 
 ## Testing
 
-The repository includes a comprehensive test suite for the OSRS app:
+The repository includes comprehensive test suites:
 
 **`./test-osrs.sh [environment]`**
 - Tests all three display modes (allstats, top5, top10)
@@ -101,7 +103,21 @@ The repository includes a comprehensive test suite for the OSRS app:
 - ✓ Parameter validation tests (invalid inputs)
 - ✓ Period tests (day/week/month)
 
-Run this test suite after making changes to ensure nothing breaks.
+**`./test-stoxx.sh [environment]`**
+- Tests stocks app (S&P 500 gainers/losers)
+- Validates JSON response structure
+- Checks data formatting and icons
+- Displays current market status
+- Environment: `prod` (default) or `local`
+
+**Test coverage:**
+- ✓ Basic response validation
+- ✓ Frame structure tests
+- ✓ Icon validation (gain/loss icons)
+- ✓ Market hours detection
+- ✓ Data format validation (ticker symbols, percentages)
+
+Run these test suites after making changes to ensure nothing breaks.
 
 ## LaMetric Response Protocol
 
@@ -187,6 +203,50 @@ The OSRS app implements sophisticated rate limiting to respect Wise Old Man's 10
 
 This ensures the service scales gracefully without hitting rate limits or causing API abuse.
 
+### Stocks App Market Hours Logic
+
+The Stocks app (`stoxx`) tracks S&P 500 gainers and losers with intelligent market hours handling:
+
+**Update frequency:**
+- Runs every 15 minutes (:00, :15, :30, :45) during market hours
+- Skips updates when market is closed
+
+**Market hours detection:**
+- US stock market hours: Monday-Friday, 9:30 AM - 4:00 PM Eastern Time
+- Properly handles time zone conversion using `America/New_York`
+- Outside market hours, returns cached data with `marketClosed: true` flag
+
+**S&P 500 constituent list:**
+- Fetched from Wikipedia once per 24 hours and cached in KV
+- Source: `https://en.wikipedia.org/wiki/List_of_S%26P_500_companies`
+- Parsed from HTML table, typically ~500 symbols
+- Falls back to cached list if Wikipedia fetch fails
+- Automatic updates without manual maintenance
+
+**Data caching:**
+- S&P 500 symbols: Updated once per day (24 hours)
+- Gainers/losers: Updated every 15 minutes during market hours, filtered to S&P 500 only
+- Single KV entry (`app:stoxx:data`) contains all data including cached symbol list
+- Cached data shown outside market hours with closed indicator
+
+**Smart caching to minimize KV writes:**
+- Only writes to KV when data actually changes (top gainer/loser symbols change)
+- Skips writes when market closed flag is already set (prevents ~512 unnecessary writes/week)
+- Skips writes when S&P 500 list hasn't been updated
+- Example: During a quiet 15-minute period, fetches data but skips KV write if same stocks on top
+
+**API endpoints used:**
+- Wikipedia: S&P 500 constituent list (free, once per day)
+- FMP `/stable/biggest-gainers` - Top gainers, filtered to S&P 500
+- FMP `/stable/biggest-losers` - Top losers, filtered to S&P 500
+
+**Output format:**
+- Frame 1: Top S&P 500 gainer (e.g., "NVDA +4.3%" with icon i72948)
+- Frame 2: Top S&P 500 loser (e.g., "TSLA -3.7%" with icon i72947)
+- Frame 3 (if market closed): "Market closed" with info icon
+
+This approach minimizes API calls while providing timely S&P 500-specific updates during active trading hours.
+
 ## Wrangler Configuration
 
 `wrangler.toml` defines:
@@ -203,6 +263,13 @@ Secrets (API keys) are set via `wrangler secret put` and accessed as `env.KEY_NA
 - Set in production: `wrangler secret put WISEOLDMAN_API_KEY`
 - Set for local dev: Add `WISEOLDMAN_API_KEY=your-key-here` to `.dev.vars` file
 - The app will work without the key but with lower rate limits
+
+**FMP_API_KEY** (Stocks app)
+- Financial Modeling Prep API key (free tier available at financialmodelingprep.com)
+- Required for fetching S&P 500 gainers/losers data
+- Set in production: `wrangler secret put FMP_API_KEY`
+- Set for local dev: Add `FMP_API_KEY=your-key-here` to `.dev.vars` file
+- The app requires this key to function
 
 ## Security and Secrets Management
 
@@ -274,16 +341,17 @@ curl http://localhost:8787/health
 curl http://localhost:8787/apps/counter
 ```
 
-**Testing apps with throttling (scryfall, counter, etc.):**
+**Testing apps with throttling (scryfall, counter, stoxx, etc.):**
 
-Some apps use hourly throttling in production to reduce KV writes. For local development, use test endpoints to bypass throttling:
+Some apps use throttling in production to reduce KV writes. For local development, use test endpoints to bypass throttling:
 
 ```bash
 # Directly invoke app's scheduled handler (skips throttling)
 curl http://localhost:8787/test/scryfall
 curl http://localhost:8787/test/osrs
+curl http://localhost:8787/test/stoxx
 
-# This populates KV immediately without waiting for top of hour
+# This populates KV immediately without waiting for scheduled updates
 # Only works on localhost for security
 ```
 

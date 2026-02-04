@@ -2,6 +2,7 @@ import { AppConfig, Env } from '../types';
 import * as counter from './counter';
 import * as osrs from './osrs';
 import * as scryfall from './scryfall';
+import * as stoxx from './stoxx';
 
 const allApps: AppConfig[] = [
   {
@@ -23,6 +24,13 @@ const allApps: AppConfig[] = [
     fetchData: scryfall.fetchData,
     formatResponse: scryfall.formatResponse,
     customScheduledHandler: scryfall.customScheduledHandler,
+  },
+  {
+    name: stoxx.name,
+    kvKey: stoxx.kvKey,
+    fetchData: stoxx.fetchData,
+    formatResponse: stoxx.formatResponse,
+    customScheduledHandler: stoxx.customScheduledHandler,
   },
 ];
 

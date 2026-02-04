@@ -25,6 +25,7 @@ export interface AppConfig {
 export interface Env {
   CLOCK_DATA: KVNamespace;
   WISEOLDMAN_API_KEY?: string;
+  FMP_API_KEY?: string;
   ENABLED_APPS?: string;
   [key: string]: any;
 }
