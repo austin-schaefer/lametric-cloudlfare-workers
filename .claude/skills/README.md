@@ -72,6 +72,31 @@ The describer will:
 - Focus on impact, not implementation minutiae
 - Avoid bloat, overselling, and unnecessary details
 
+### `/shipit` - Commit, Deploy, and PR
+
+Automates the complete workflow of committing changes, deploying to Cloudflare, and creating a pull request:
+- Commits all changes with descriptive message
+- Deploys to Cloudflare Workers
+- Creates pull request against main
+- Handles errors gracefully at each step
+
+**Usage:**
+```
+/shipit "Add new feature"
+```
+
+Or without commit message (auto-generates):
+```
+/shipit
+```
+
+The workflow:
+1. Stages and commits changes (uses provided or auto-generated message)
+2. Deploys to Cloudflare with `wrangler deploy`
+3. Pushes branch to remote
+4. Creates PR with auto-generated description
+5. Reports results with links and status
+
 ## Skill Structure
 
 Skills follow the Claude Code skills specification:
