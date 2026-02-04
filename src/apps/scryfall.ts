@@ -123,9 +123,25 @@ function getColorIcon(colors: string[]): string {
 
 function parseCardType(typeLine: string): string {
   // "Legendary Creature — Dragon" → "Creature"
+  // "Artifact Creature — Golem" → "Artifact Creature"
+  // "Enchantment Creature — Nymph" → "Enchantment Creature"
   // "Instant" → "Instant"
   const beforeDash = typeLine.split('—')[0].trim();
   const words = beforeDash.split(' ');
+
+  // Check for compound types first
+  const compoundTypes = [
+    'Artifact Creature',
+    'Enchantment Creature',
+    'Artifact Land',
+    'Enchantment Land'
+  ];
+
+  for (const compoundType of compoundTypes) {
+    if (beforeDash.includes(compoundType)) {
+      return compoundType;
+    }
+  }
 
   // Find primary type
   const typeKeywords = ['Creature', 'Instant', 'Sorcery', 'Artifact',
@@ -134,6 +150,24 @@ function parseCardType(typeLine: string): string {
     if (typeKeywords.includes(word)) return word;
   }
   return 'Card';  // fallback
+}
+
+function abbreviateType(cardType: string): string {
+  // Abbreviate type names to fit LaMetric display
+  const abbreviations: Record<string, string> = {
+    'Artifact Creature': 'ART.CRE.',
+    'Enchantment Creature': 'ENC.CRE.',
+    'Creature': 'CREAT.',
+    'Enchantment': 'ENCHANT.',
+    'Planeswalker': 'PLANESW.',
+    'Artifact': 'ARTIFACT',  // Already short enough
+    'Instant': 'INSTANT',    // Already short enough
+    'Sorcery': 'SORCERY',    // Already short enough
+    'Land': 'LAND',          // Already short enough
+    'Battle': 'BATTLE'       // Already short enough
+  };
+
+  return abbreviations[cardType] || cardType;
 }
 
 function getTypeIcon(cardType: string): string {
@@ -271,12 +305,13 @@ export function formatResponse(
   const year = parseYear(card.released_at);
   const rarityAbbr = formatRarity(card.rarity);
   const yearIcon = getYearIcon(year);
-  frames.push(createFrame(`${card.set} - ${rarityAbbr}`, yearIcon));
+  frames.push(createFrame(`${card.set}|${rarityAbbr}`, yearIcon));
 
   // Frame 3: Card type
   const primaryType = parseCardType(card.type_line);
+  const abbreviatedType = abbreviateType(primaryType);
   const typeIcon = getTypeIcon(primaryType);
-  frames.push(createFrame(primaryType, typeIcon));
+  frames.push(createFrame(abbreviatedType, typeIcon));
 
   // Frame 4: Price (skip if currency is 'none' or price is null/missing)
   if (curr !== 'none') {
