@@ -17,15 +17,16 @@ interface CityConfig {
 }
 
 const CITIES: CityConfig[] = [
-  { name: 'Portland',    lat: 45.5152, lon: -122.6784, icon: 'i2056' },
-  { name: 'LA',          lat: 34.0522, lon: -118.2437, icon: 'i2056' },
-  { name: 'NYC',         lat: 40.7128, lon: -74.0060,  icon: 'i2056' },
-  { name: 'Kona',        lat: 19.6400, lon: -155.9969, icon: 'i2056' },
-  { name: 'Vrsac',       lat: 45.1167, lon: 21.3033,   icon: 'i2056' },
+  { name: 'Portland',    lat: 45.5152, lon: -122.6784, icon: 'i73071' },
+  { name: 'LA',          lat: 34.0522, lon: -118.2437, icon: 'i73072' },
+  { name: 'NYC',         lat: 40.7128, lon: -74.0060,  icon: 'i73073' },
+  { name: 'Kona',        lat: 19.6400, lon: -155.9969, icon: 'i73074' },
+  { name: 'Vrsac',       lat: 45.1167, lon: 21.3033,   icon: 'i73075' },
 ];
 
 const FRAMES_PER_CITY = 3;
 const LAMETRIC_FRAME_LIMIT = 15;
+
 const MAX_CITIES_PER_PAGE = Math.floor(LAMETRIC_FRAME_LIMIT / FRAMES_PER_CITY);
 
 // ============================================================
@@ -183,6 +184,12 @@ export async function customScheduledHandler(env: Env, scheduledTime?: number): 
   }
 
   const data = await fetchData(env);
+
+  if (data.cities.length === 0) {
+    console.error('All weather fetches failed, keeping existing data');
+    return;
+  }
+
   const newValue = JSON.stringify(data);
 
   // Smart caching: only write if weather data actually changed
