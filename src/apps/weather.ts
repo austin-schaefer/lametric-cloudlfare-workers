@@ -160,8 +160,8 @@ export function formatResponse(data: WeatherData): LaMetricResponse {
   }
 
   const frames = citiesToShow.flatMap((city) => [
-    createFrame(`${city.high}H / ${city.low}L`, city.icon),
-    createFrame(`${city.current}C, ${city.feelsLike}F`, city.icon),
+    createFrame(`H${city.high}°L${city.low}°`, city.icon),
+    createFrame(`N${city.current}°F${city.feelsLike}°`, city.icon),
     createFrame(city.condition, city.icon),
   ]);
 

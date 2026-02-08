@@ -165,28 +165,28 @@ for ((i = 0; i < num_cities; i++)); do
     base=$((i * 3))
     city_num=$((i + 1))
 
-    # Frame 1: High/Low (e.g., "72H / 55L")
+    # Frame 1: High/Low (e.g., "H72°L55°")
     hl_text=$(echo "$response" | jq -r ".frames[$base].text")
     echo -n "Testing: City $city_num high/low format ... "
-    if [[ "$hl_text" =~ ^-?[0-9]+H\ /\ -?[0-9]+L$ ]]; then
+    if [[ "$hl_text" =~ ^H-?[0-9]+°L-?[0-9]+°$ ]]; then
         echo -e "${GREEN}✓ PASS${NC} ($hl_text)"
         ((PASSED++))
     else
         echo -e "${RED}✗ FAIL${NC}"
-        echo "  Expected format: '72H / 55L'"
+        echo "  Expected format: 'H72°L55°'"
         echo "  Got: $hl_text"
         ((FAILED++))
     fi
 
-    # Frame 2: Current/Feels (e.g., "69C, 65F")
+    # Frame 2: Now/Feels (e.g., "N69°F65°")
     cf_text=$(echo "$response" | jq -r ".frames[$((base + 1))].text")
-    echo -n "Testing: City $city_num current/feels format ... "
-    if [[ "$cf_text" =~ ^-?[0-9]+C,\ -?[0-9]+F$ ]]; then
+    echo -n "Testing: City $city_num now/feels format ... "
+    if [[ "$cf_text" =~ ^N-?[0-9]+°F-?[0-9]+°$ ]]; then
         echo -e "${GREEN}✓ PASS${NC} ($cf_text)"
         ((PASSED++))
     else
         echo -e "${RED}✗ FAIL${NC}"
-        echo "  Expected format: '69C, 65F'"
+        echo "  Expected format: 'N69°F65°'"
         echo "  Got: $cf_text"
         ((FAILED++))
     fi

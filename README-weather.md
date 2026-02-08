@@ -37,8 +37,8 @@ const CITIES: CityConfig[] = [
 ## Output
 
 3 frames per city:
-- High/Low: `48H / 35L`
-- Current/Feels like: `42C, 38F` (C=Current, F=Feels)
+- High/Low: `H48°L35°`
+- Now/Feels like: `N42°F38°` (N=Now, F=Feels)
 - Condition: `RAIN`, `CLEAR`, `SNOW`, `PTLY CLDY`, etc.
 
 ## Testing
