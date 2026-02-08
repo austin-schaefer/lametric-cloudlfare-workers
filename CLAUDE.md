@@ -454,5 +454,9 @@ Parameters:
 2. Register in `src/apps/index.ts`
 3. Add app to `ENABLED_APPS` in `wrangler.toml`: `ENABLED_APPS = "counter,osrs,newapp"`
 4. Add required API keys: `wrangler secret put API_KEY_NAME`
-5. Deploy: `wrangler deploy`
-6. Configure LaMetric device to poll `https://your-worker.workers.dev/apps/newapp`
+5. Create `README-newapp.md` following the pattern of existing app READMEs (see `README-stoxx.md` for a good example)
+6. Add an entry for the app in the **Apps** section of `README.md` with a one-line description and link to the new README
+7. Deploy: `wrangler deploy`
+8. Configure LaMetric device to poll `https://your-worker.workers.dev/apps/newapp`
+
+**Do not skip steps 5-6.** Every app must have its own README and an entry in the main README.
