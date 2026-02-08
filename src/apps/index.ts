@@ -3,6 +3,7 @@ import * as counter from './counter';
 import * as osrs from './osrs';
 import * as scryfall from './scryfall';
 import * as stoxx from './stoxx';
+import * as weather from './weather';
 
 const allApps: AppConfig[] = [
   {
@@ -31,6 +32,13 @@ const allApps: AppConfig[] = [
     fetchData: stoxx.fetchData,
     formatResponse: stoxx.formatResponse,
     customScheduledHandler: stoxx.customScheduledHandler,
+  },
+  {
+    name: weather.name,
+    kvKey: weather.kvKey,
+    fetchData: weather.fetchData,
+    formatResponse: weather.formatResponse,
+    customScheduledHandler: weather.customScheduledHandler,
   },
 ];
 
