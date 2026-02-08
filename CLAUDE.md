@@ -83,6 +83,8 @@ wrangler secret put KEY_NAME
 ./test-osrs.sh local    # Test local dev server
 ./test-stoxx.sh prod    # Test stocks app
 ./test-stoxx.sh local   # Test stocks app locally
+./test-weather.sh prod  # Test weather app
+./test-weather.sh local # Test weather app locally
 ```
 
 ## Testing
@@ -247,6 +249,35 @@ The Stocks app (`stoxx`) tracks S&P 500 gainers and losers with intelligent mark
 
 This approach minimizes API calls while providing timely S&P 500-specific updates during active trading hours.
 
+### Weather App
+
+The Weather app shows multi-city weather on the LaMetric clock. It's a personal (hardcoded) app, not published to the LaMetric store.
+
+**Cities:** Portland OR, Los Angeles, NYC, Kailua-Kona HI, Vrsac Serbia
+
+**API:** [Open-Meteo](https://open-meteo.com/) (free, no API key required)
+
+**Frames per city (3 frames each):**
+- High/Low: `72H / 55L`
+- Current/Feels like: `69C, 65F` (C=Current, F=Feels)
+- Condition: `CLEAR`, `RAIN`, `SNOW`, etc. (mapped from WMO weather codes)
+
+**All temperatures in Fahrenheit.**
+
+**Frame limit handling:**
+- 5 cities × 3 frames = 15 frames (exactly at LaMetric limit)
+- If cities exceed the limit, automatic rotation by minute parity (like OSRS odd/even)
+- `MAX_CITIES_PER_PAGE = 5` (15 frames ÷ 3 frames/city)
+
+**Update frequency:**
+- Runs every 15 minutes (:00, :15, :30, :45)
+- Smart caching: only writes KV if weather data actually changed
+- ~96 API calls/day (5 cities × 4 updates/hour × ~5 hours of changes), well within Open-Meteo's 10,000/day limit
+
+**Icons:** Each city has its own icon ID in the `CITIES` config. Update icon IDs in `src/apps/weather.ts` after finding/uploading city-specific icons in the LaMetric icon store.
+
+**Adding/removing cities:** Edit the `CITIES` array in `src/apps/weather.ts`. If total cities > 5, frame rotation activates automatically.
+
 ## Wrangler Configuration
 
 `wrangler.toml` defines:
@@ -350,6 +381,7 @@ Some apps use throttling in production to reduce KV writes. For local developmen
 curl http://localhost:8787/test/scryfall
 curl http://localhost:8787/test/osrs
 curl http://localhost:8787/test/stoxx
+curl http://localhost:8787/test/weather
 
 # This populates KV immediately without waiting for scheduled updates
 # Only works on localhost for security

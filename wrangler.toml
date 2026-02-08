@@ -18,7 +18,7 @@ crons = ["*/5 * * * *"]
 # Comma-separated list of enabled apps (e.g., "counter,osrs")
 # Remove an app from this list to completely disable it
 [vars]
-ENABLED_APPS = "counter,osrs,scryfall,stoxx"
+ENABLED_APPS = "counter,osrs,scryfall,stoxx,weather"
 
 # Environment variables for API keys
 # Set via: wrangler secret put KEY_NAME
