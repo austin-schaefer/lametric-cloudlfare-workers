@@ -258,8 +258,8 @@ The Weather app shows multi-city weather on the LaMetric clock. It's a personal 
 **API:** [Open-Meteo](https://open-meteo.com/) (free, no API key required)
 
 **Frames per city (3 frames each):**
-- High/Low: `H72°L55°`
-- Now/Feels like: `N69°F65°` (N=Now, F=Feels)
+- High/Low: `H72 L55`
+- Now/Feels like: `N69 F65` (N=Now, F=Feels)
 - Condition: `CLEAR`, `RAIN`, `SNOW`, etc. (mapped from WMO weather codes)
 
 **All temperatures in Fahrenheit.**
