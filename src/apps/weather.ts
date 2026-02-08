@@ -17,9 +17,9 @@ interface CityConfig {
 }
 
 const CITIES: CityConfig[] = [
-  { name: 'Portland',    lat: 45.5152, lon: -122.6784, icon: 'i73071' },
-  { name: 'LA',          lat: 34.0522, lon: -118.2437, icon: 'i73072' },
-  { name: 'NYC',         lat: 40.7128, lon: -74.0060,  icon: 'i73073' },
+  { name: 'Portland',    lat: 45.5299, lon: -122.5205, icon: 'i73071' },
+  { name: 'LA',          lat: 34.0585, lon: -118.4161, icon: 'i73072' },
+  { name: 'NYC',         lat: 40.7809, lon: -73.9668,  icon: 'i73073' },
   { name: 'Kona',        lat: 19.6400, lon: -155.9969, icon: 'i73074' },
   { name: 'Vrsac',       lat: 45.1167, lon: 21.3033,   icon: 'i73075' },
 ];
