@@ -360,5 +360,8 @@ export function formatResponse(
     }
   }
 
+  // Frame 6: Card name again (bookend)
+  frames.push(createFrame(card.name, colorIcon));
+
   return createResponse(frames);
 }
