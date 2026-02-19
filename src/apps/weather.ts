@@ -37,7 +37,7 @@ function weatherLabel(code: number): string {
   switch (code) {
     case 0:  return 'CLEAR';
     case 1:  return 'CLEAR';
-    case 2:  return 'PTLY CLDY';
+    case 2:  return 'PT CLDY';
     case 3:  return 'CLOUDY';
     case 45: return 'FOG';
     case 48: return 'FOG';
