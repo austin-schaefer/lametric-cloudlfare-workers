@@ -145,6 +145,14 @@ export async function fetchData(env: Env): Promise<WeatherData> {
   return { cities, fetchedAt: Date.now() };
 }
 
+// Drop the space between high and low when either temp is 100+ or
+// negative, so the extra digit / minus sign doesn't overflow the frame.
+function formatHighLow(high: number, low: number): string {
+  const needsCompact = high >= 100 || high < 0 || low >= 100 || low < 0;
+  const separator = needsCompact ? '' : ' ';
+  return `H${high}${separator}L${low}`;
+}
+
 export function formatResponse(data: WeatherData): LaMetricResponse {
   if (!data?.cities?.length) {
     return createResponse([createFrame('No weather data', 'i2056')]);
@@ -161,7 +169,7 @@ export function formatResponse(data: WeatherData): LaMetricResponse {
   }
 
   const frames = citiesToShow.flatMap((city) => [
-    createFrame(`H${city.high} L${city.low}`, city.icon),
+    createFrame(formatHighLow(city.high, city.low), city.icon),
     createFrame(`N${city.current} F${city.feelsLike}`, city.icon),
     createFrame(city.condition, city.icon),
   ]);

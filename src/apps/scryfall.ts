@@ -161,7 +161,7 @@ function abbreviateType(cardType: string): string {
     'Creature': 'CREAT.',
     'Enchantment': 'ENCHT.',
     'Planeswalker': 'PLANESW.',
-    'Artifact': 'ARTIFACT',  // Already short enough
+    'Artifact': 'ARTIFCT',   // Dropped 'A' so it fits the frame
     'Instant': 'INSTANT',    // Already short enough
     'Sorcery': 'SORCERY',    // Already short enough
     'Land': 'LAND',          // Already short enough
